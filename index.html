@@ -148,6 +148,33 @@
     </div>
 
     <script>
+        // --- TEXTURAS DINÁMICAS (CANVAS 2D A THREE.JS) ---
+        function createTextTexture(text, bgColor = '#ffcc00', textColor = '#000000') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+
+            ctx.fillStyle = textColor;
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+
+        const extraGncTexture = createTextTexture('EXTRA GNC', '#ffcc00', '#000000');
+
         // --- AUDIO ---
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         let audioCtx = null;
@@ -230,7 +257,7 @@
         rightLine.position.x = 5.9;
         scene.add(rightLine);
 
-        // --- AUTO ---
+        // --- AUTO CON LETRERO "EXTRA GNC" ---
         const playerGroup = new THREE.Group();
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0088ff, metalness: 0.8, roughness: 0.2 });
         const glassMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.9, roughness: 0.05 });
@@ -245,6 +272,14 @@
         cabin.position.set(0, 0.7, -0.1);
         cabin.castShadow = true;
         playerGroup.add(cabin);
+
+        // CARTEL "EXTRA GNC" SOBRE EL AUTO
+        const signGeo = new THREE.BoxGeometry(0.8, 0.25, 0.15);
+        const signMat = new THREE.MeshStandardMaterial({ map: extraGncTexture, roughness: 0.3 });
+        const sign = new THREE.Mesh(signGeo, signMat);
+        sign.position.set(0, 0.98, -0.1);
+        sign.castShadow = true;
+        playerGroup.add(sign);
 
         const wing = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.08, 0.3), bodyMat);
         wing.position.set(0, 0.85, 1.1);
@@ -289,26 +324,23 @@
         }
         updateCameraFOV();
 
-        // --- MODELADO MEJORADO DE PEATONES 3D ---
+        // --- MODELADO DE PEATONES ---
         function createPedestrian() {
             const group = new THREE.Group();
             const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.7 });
             const clothesMat = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, roughness: 0.5 });
             const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1a202c, roughness: 0.8 });
 
-            // Torso
             const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.65, 12), clothesMat);
             torso.position.y = 0.75;
             torso.castShadow = true;
             group.add(torso);
 
-            // Cabeza
             const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), skinMat);
             head.position.y = 1.2;
             head.castShadow = true;
             group.add(head);
 
-            // Brazos
             const armGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.5);
             const leftArm = new THREE.Mesh(armGeo, clothesMat);
             leftArm.position.set(-0.25, 0.75, 0);
@@ -319,7 +351,6 @@
             rightArm.position.x = 0.25;
             group.add(rightArm);
 
-            // Piernas
             const legGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.55);
             const leftLeg = new THREE.Mesh(legGeo, pantsMat);
             leftLeg.position.set(-0.1, 0.28, 0);
@@ -342,7 +373,7 @@
             return group;
         }
 
-        // --- FABRICA DE OBSTÁCULOS Y ENTIDADES ---
+        // --- OBSTÁCULOS Y ENTIDADES ---
         function createCone() {
             const group = new THREE.Group();
             const cone = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.9, 16), new THREE.MeshStandardMaterial({ color: 0xff5500, roughness: 0.3 }));
@@ -379,7 +410,7 @@
             return block;
         }
 
-        // --- ESTADO DE DIFICULTAD Y CICLO DÍA/NOCHE ---
+        // --- ESTADO DE JUEGO ---
         let currentLane = 0;
         const lanePositions = [-3.6, 0, 3.6];
         let score = 0, stage = 1, lives = 3;
@@ -391,7 +422,6 @@
         const collectibles = [];
 
         function updateDifficultyAndLighting() {
-            // Cambio de Etapa y Dificultad
             let diffText = "FÁCIL";
             if (score < 100) {
                 stage = 1;
@@ -410,24 +440,20 @@
                 spawnInterval = 0.7;
             }
 
-            // Transición Progresiva Día -> Atardecer -> Noche
             const targetColor = new THREE.Color();
             let sunIntensity = 1.2;
             let headlightIntensity = 0;
 
             if (score < 100) {
-                // Día
                 targetColor.copy(dayColor);
                 sunIntensity = 1.2;
                 headlightIntensity = 0;
             } else if (score < 250) {
-                // Atardecer (Transición)
                 const t = (score - 100) / 150;
                 targetColor.lerpColors(dayColor, sunsetColor, t);
                 sunIntensity = 1.2 - (0.6 * t);
                 headlightIntensity = t * 1.5;
             } else {
-                // Noche
                 const t = Math.min(1, (score - 250) / 200);
                 targetColor.lerpColors(sunsetColor, nightColor, t);
                 sunIntensity = 0.6 - (0.45 * t);
@@ -482,19 +508,19 @@
             } 
         }, () => { currentSpeed = baseSpeed; });
 
-        // --- SPANWING DE ENTIDADES SEGÚN DIFICULTAD ---
+        // --- SPANWING DE ENTIDADES ---
         function spawnObstacle() {
             if (isGameOver) return;
             const rand = Math.random();
             let obs;
 
-            if (stage === 1) { // Fácil: conos y bloques
+            if (stage === 1) {
                 obs = rand < 0.6 ? createCone() : createBlock();
-            } else if (stage === 2) { // Medio: conos, bloques y peatones
+            } else if (stage === 2) {
                 if (rand < 0.4) obs = createCone();
                 else if (rand < 0.7) obs = createBlock();
                 else obs = createPedestrian();
-            } else { // Difícil: incluye motos que cruzan
+            } else {
                 if (rand < 0.3) obs = createCone();
                 else if (rand < 0.55) obs = createBlock();
                 else if (rand < 0.8) obs = createPedestrian();
@@ -508,16 +534,37 @@
             obstacles.push(obs);
         }
 
+        // DIAMANTE CON MARCA "EXTRA GNC"
         function spawnCollectible() {
             if (isGameOver) return;
-            const item = new THREE.Mesh(new THREE.OctahedronGeometry(0.45), new THREE.MeshStandardMaterial({ color: 0xffcc00, metalness: 0.9, roughness: 0.1 }));
-            item.position.y = 0.6;
-            item.castShadow = true;
+            const group = new THREE.Group();
+
+            const diamondGeo = new THREE.OctahedronGeometry(0.55);
+            const diamondMat = new THREE.MeshStandardMaterial({ 
+                color: 0xffcc00, 
+                metalness: 0.8, 
+                roughness: 0.1,
+                transparent: true,
+                opacity: 0.85
+            });
+            const diamond = new THREE.Mesh(diamondGeo, diamondMat);
+            diamond.castShadow = true;
+            group.add(diamond);
+
+            const textCardGeo = new THREE.PlaneGeometry(0.7, 0.22);
+            const textCardMat = new THREE.MeshBasicMaterial({ 
+                map: extraGncTexture, 
+                transparent: true, 
+                side: THREE.DoubleSide 
+            });
+            const textCard = new THREE.Mesh(textCardGeo, textCardMat);
+            textCard.position.z = 0.01;
+            group.add(textCard);
 
             const lane = Math.floor(Math.random() * 3) - 1;
-            item.position.set(lanePositions[lane + 1], 0.6, -80);
-            scene.add(item);
-            collectibles.push(item);
+            group.position.set(lanePositions[lane + 1], 0.65, -80);
+            scene.add(group);
+            collectibles.push(group);
         }
 
         let spawnTimer = 0;
@@ -544,7 +591,6 @@
                     const obs = obstacles[i];
                     obs.position.z += currentSpeed;
 
-                    // Comportamiento de Peatón (Cruce lateral + Animación)
                     if (obs.userData && obs.userData.type === 'pedestrian') {
                         obs.position.x += obs.userData.walkSpeed * obs.userData.direction;
                         obs.userData.animTimer += 0.15;
@@ -555,19 +601,26 @@
                         obs.userData.rightArm.rotation.x = angle;
                     }
 
-                    // Comportamiento de Moto
                     if (obs.userData && obs.userData.type === 'motorcycle') {
                         obs.position.x += 0.035 * obs.userData.direction;
                         if (Math.abs(obs.position.x) > 5) obs.userData.direction *= -1;
                     }
 
-                    // Colisión
+                    // DETECCIÓN DE COLISIÓN
                     if (Math.abs(obs.position.z - playerGroup.position.z) < 1.1 &&
                         Math.abs(obs.position.x - playerGroup.position.x) < 0.85) {
+                        
+                        // SI IMPACTA CON UN PEATÓN, PIERDE TODAS LAS VIDAS DE GOLPE
+                        if (obs.userData && obs.userData.type === 'pedestrian') {
+                            lives = 0;
+                        } else {
+                            lives--;
+                        }
+
                         scene.remove(obs);
                         obstacles.splice(i, 1);
-                        lives--;
                         updateUI();
+                        
                         if (lives <= 0) triggerGameOver();
                         continue;
                     }
@@ -578,7 +631,7 @@
                     }
                 }
 
-                // Coleccionables
+                // Coleccionables (Diamantes EXTRA GNC)
                 for (let i = collectibles.length - 1; i >= 0; i--) {
                     const item = collectibles[i];
                     item.position.z += currentSpeed;
