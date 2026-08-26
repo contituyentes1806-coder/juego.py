@@ -156,7 +156,7 @@
         document.body.appendChild(renderer.domElement);
 
         // --- ILUMINACIÓN ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
         scene.add(ambientLight);
 
         const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -186,28 +186,58 @@
         rightLine.position.set(roadWidth / 2 - 0.2, 0.01, -450);
         scene.add(rightLine);
 
-        // --- JUGADOR (Malla Base + Carga GLB Segura) ---
-        let playerCar = null;
-        const playerMesh = new THREE.Mesh(
-            new THREE.BoxGeometry(1.2, 0.6, 2.2),
-            new THREE.MeshStandardMaterial({ color: 0x00d2ff })
-        );
-        playerMesh.position.set(0, 0.3, 0);
-        scene.add(playerMesh);
+        // --- CONSTRUCCIÓN DE UN AUTO DE RESPALDO (PROCEDURAL 3D) ---
+        const carGroup = new THREE.Group();
 
-        // Intentar cargar player_car.glb desde la raíz
+        // Chasis principal (Azul Cian)
+        const bodyGeo = new THREE.BoxGeometry(1.4, 0.5, 2.6);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00d2ff, roughness: 0.2, metalness: 0.5 });
+        const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+        bodyMesh.position.y = 0.4;
+        carGroup.add(bodyMesh);
+
+        // Cabina/Parabrisas (Oscuro)
+        const cabinGeo = new THREE.BoxGeometry(1.1, 0.4, 1.2);
+        const cabinMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.1 });
+        const cabinMesh = new THREE.Mesh(cabinGeo, cabinMat);
+        cabinMesh.position.set(0, 0.75, -0.2);
+        carGroup.add(cabinMesh);
+
+        // Ruedas (Negras)
+        const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        wheelGeo.rotateZ(Math.PI / 2);
+
+        const wheelPositions = [
+            [-0.75, 0.3, 0.8],  // Delantera Izq
+            [0.75, 0.3, 0.8],   // Delantera Der
+            [-0.75, 0.3, -0.8], // Trasera Izq
+            [0.75, 0.3, -0.8]   // Trasera Der
+        ];
+
+        wheelPositions.forEach(pos => {
+            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+            wheel.position.set(pos[0], pos[1], pos[2]);
+            carGroup.add(wheel);
+        });
+
+        carGroup.position.set(0, 0, 0);
+        scene.add(carGroup);
+
+        // --- CARGA DEL MODELO GLB (Reemplaza el auto procedural si carga con éxito) ---
+        let playerCar = null;
         const gltfLoader = new THREE.GLTFLoader();
+        
         gltfLoader.load('./player_car.glb', (gltf) => {
             playerCar = gltf.scene;
-            playerCar.scale.set(0.5, 0.5, 0.5);
-            playerCar.position.set(0, 0.1, 0);
-            playerCar.rotation.y = Math.PI;
+            playerCar.scale.set(0.6, 0.6, 0.6);
+            playerCar.position.set(0, 0, 0);
+            playerCar.rotation.y = Math.PI; // Rotación corregida hacia adelante
             
-            playerMesh.visible = false; // Oculta el cubo si el auto carga bien
+            scene.remove(carGroup); // Reemplaza el modelo procedural por el GLB cargado
             scene.add(playerCar);
         }, undefined, (error) => {
-            console.warn("No se pudo cargar player_car.glb. Se mantiene la malla predeterminada.");
-            playerMesh.visible = true;
+            console.warn("No se pudo cargar player_car.glb. Se utiliza el vehículo 3D interno.");
         });
 
         // --- ESTADO DEL JUEGO ---
@@ -298,9 +328,11 @@
             requestAnimationFrame(animate);
 
             if (!isGameOver) {
+                // Seleccionar objeto activo para controlar
+                const activePlayer = playerCar || carGroup;
+
                 // Suavizar movimiento horizontal
                 targetX = lanePositions[currentLane + 1];
-                const activePlayer = (playerCar && playerCar.parent) ? playerCar : playerMesh;
                 activePlayer.position.x += (targetX - activePlayer.position.x) * 0.15;
 
                 // Spawns
@@ -317,8 +349,8 @@
                     obs.position.z += currentSpeed;
 
                     // Colisión
-                    if (Math.abs(obs.position.z - activePlayer.position.z) < 1.2 &&
-                        Math.abs(obs.position.x - activePlayer.position.x) < 0.8) {
+                    if (Math.abs(obs.position.z - activePlayer.position.z) < 1.4 &&
+                        Math.abs(obs.position.x - activePlayer.position.x) < 0.9) {
                         scene.remove(obs);
                         obstacles.splice(i, 1);
                         lives--;
@@ -340,8 +372,8 @@
                     item.rotation.y += 0.03;
 
                     // Recolección
-                    if (Math.abs(item.position.z - activePlayer.position.z) < 1.2 &&
-                        Math.abs(item.position.x - activePlayer.position.x) < 0.8) {
+                    if (Math.abs(item.position.z - activePlayer.position.z) < 1.4 &&
+                        Math.abs(item.position.x - activePlayer.position.x) < 0.9) {
                         scene.remove(item);
                         collectibles.splice(i, 1);
                         score += 5;
@@ -389,8 +421,8 @@
             currentLane = 0;
             isGameOver = false;
 
-            const activePlayer = (playerCar && playerCar.parent) ? playerCar : playerMesh;
-            activePlayer.position.set(0, 0.3, 0);
+            const activePlayer = playerCar || carGroup;
+            activePlayer.position.set(0, 0, 0);
 
             updateUI();
             document.getElementById('game-over-screen').style.display = 'none';
