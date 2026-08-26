@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GNC TURBO RACER 3D</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            overflow: hidden;
-            background-color: #050508;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            user-select: none;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            overflow: hidden; 
+            background-color: #080911; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            user-select: none; 
         }
 
         #ui-container {
@@ -20,11 +20,11 @@
             transform: translateX(-50%);
             display: flex;
             gap: 15px;
-            z-index: 10;
+            z-index: 100;
         }
 
         .ui-box {
-            background: rgba(15, 15, 25, 0.85);
+            background: rgba(10, 10, 20, 0.85);
             border: 2px solid #ffcc00;
             border-radius: 8px;
             padding: 8px 16px;
@@ -43,10 +43,15 @@
             display: flex;
             justify-content: space-between;
             padding: 0 30px;
-            z-index: 10;
+            z-index: 100;
+            pointer-events: none;
         }
 
-        .btn-group { display: flex; gap: 12px; }
+        .btn-group { 
+            display: flex; 
+            gap: 12px; 
+            pointer-events: auto;
+        }
 
         .control-btn {
             width: 65px;
@@ -62,6 +67,7 @@
             touch-action: manipulation;
             backdrop-filter: blur(4px);
             box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+            cursor: pointer;
         }
 
         .control-btn:active {
@@ -80,7 +86,7 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 20;
+            z-index: 200;
             color: white;
         }
 
@@ -104,8 +110,7 @@
             box-shadow: 0 0 15px rgba(255, 204, 0, 0.5);
         }
     </style>
-    <!-- Carga garantizada de Three.js -->
-    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
@@ -133,67 +138,65 @@
     </div>
 
     <script>
-        // --- ESCENA Y RENDERIZADOR CON SOMBRAS ACTIVAS ---
+        // --- ESCENA Y CONFIGURACIÓN ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0a0c14);
-        scene.fog = new THREE.Fog(0x0a0c14, 20, 90);
+        scene.background = new THREE.Color(0x080911);
+        scene.fog = new THREE.Fog(0x080911, 20, 80);
 
         const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        // --- ILUMINACIÓN CON VOLUMEN ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        // --- ILUMINACIÓN ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
-        dirLight.position.set(12, 25, 10);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(10, 20, 10);
         dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 2048;
-        dirLight.shadow.mapSize.height = 2048;
-        dirLight.shadow.camera.near = 0.5;
-        dirLight.shadow.camera.far = 80;
-        dirLight.shadow.camera.left = -12;
-        dirLight.shadow.camera.right = 12;
-        dirLight.shadow.camera.top = 12;
-        dirLight.shadow.camera.bottom = -12;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
         scene.add(dirLight);
 
         // --- PISTA Y LÍNEAS DE CARRIL ---
         const roadGeo = new THREE.PlaneGeometry(10, 1000);
-        const roadMat = new THREE.MeshPhongMaterial({ color: 0x1e1e24, shininess: 10 });
+        const roadMat = new THREE.MeshPhongMaterial({ color: 0x1a1a20, shininess: 10 });
         const road = new THREE.Mesh(roadGeo, roadMat);
         road.rotation.x = -Math.PI / 2;
         road.position.z = -450;
         road.receiveShadow = true;
         scene.add(road);
 
-        // Delimitadores fluorescentes
-        const lineGeo = new THREE.PlaneGeometry(0.2, 1000);
+        // Delimitadores fluorescentes en los bordes de la pista
+        const lineGeo = new THREE.PlaneGeometry(0.15, 1000);
         const lineMat = new THREE.MeshBasicMaterial({ color: 0x00d2ff });
-        
+
         const leftLine = new THREE.Mesh(lineGeo, lineMat);
         leftLine.rotation.x = -Math.PI / 2;
-        leftLine.position.set(-4.9, 0.02, -450);
+        leftLine.position.set(-4.85, 0.02, -450);
         scene.add(leftLine);
 
         const rightLine = new THREE.Mesh(lineGeo, lineMat);
         rightLine.rotation.x = -Math.PI / 2;
-        rightLine.position.set(4.9, 0.02, -450);
+        rightLine.position.set(4.85, 0.02, -450);
         scene.add(rightLine);
 
-        // --- AUTO DETALLADO EN 3D ---
+        // --- AUTO 3D COMPUESTO ---
         const playerGroup = new THREE.Group();
 
         // Materiales
-        const bodyMat = new THREE.MeshPhongMaterial({ color: 0x0088ff, shininess: 90, specular: 0x111111 });
+        const bodyMat = new THREE.MeshPhongMaterial({ color: 0x00a8ff, shininess: 90 });
         const roofMat = new THREE.MeshPhongMaterial({ color: 0x111115, shininess: 100 });
         const wheelMat = new THREE.MeshPhongMaterial({ color: 0x151515, shininess: 30 });
-        const tailMat = new THREE.MeshBasicMaterial({ color: 0xff0033 });
+        const tailLightMat = new THREE.MeshStandardMaterial({ 
+            color: 0xff0033, 
+            emissive: 0xff0033, 
+            emissiveIntensity: 0.8 
+        });
 
         // Carrocería
         const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.45, 2.8), bodyMat);
@@ -222,15 +225,15 @@
         playerGroup.add(sup2);
 
         // Luces Traseras
-        const lightL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.1, 0.05), tailMat);
-        lightL.position.set(-0.45, 0.48, 1.41);
+        const lightL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.1, 0.05), tailLightMat);
+        lightL.position.set(-0.45, 0.48, 1.38);
         playerGroup.add(lightL);
 
         const lightR = lightL.clone();
-        lightR.position.set(0.45, 0.48, 1.41);
+        lightR.position.set(0.45, 0.48, 1.38);
         playerGroup.add(lightR);
 
-        // Ruedas
+        // Ruedas 3D
         const wheelGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.25, 18);
         wheelGeo.rotateZ(Math.PI / 2);
 
@@ -251,10 +254,10 @@
         playerGroup.position.set(0, 0, 0);
         scene.add(playerGroup);
 
-        // Ajuste de cámara fija
+        // Configuración de Cámara Tercera Persona
         playerGroup.add(camera);
-        camera.position.set(0, 3.5, 6.0);
-        camera.lookAt(0, 0.5, -6);
+        camera.position.set(0, 3.2, 5.8);
+        camera.lookAt(0, 0.5, -5);
 
         // --- ESTADO DEL JUEGO ---
         let currentLane = 0;
@@ -269,7 +272,7 @@
         const obstacles = [];
         const collectibles = [];
 
-        // --- CONTROLES ---
+        // --- CONTROLES TECLADO Y TOUCH ---
         window.addEventListener('keydown', (e) => {
             if (isGameOver) return;
             if ((e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') && currentLane > -1) currentLane--;
@@ -298,7 +301,7 @@
         bindBtn('btn-boost', () => { if (!isGameOver) currentSpeed = baseSpeed * 1.8; }, () => { currentSpeed = baseSpeed; });
         bindBtn('btn-brake', () => { if (!isGameOver) currentSpeed = baseSpeed * 0.5; }, () => { currentSpeed = baseSpeed; });
 
-        // --- GENERACIÓN DE OBJETOS CON SOMBRA Y FORMA 3D ---
+        // --- GENERACIÓN DE ENTIDADES ---
         function spawnObstacle() {
             if (isGameOver) return;
             const obsMat = new THREE.MeshPhongMaterial({ color: 0xee3333, shininess: 40 });
@@ -326,17 +329,16 @@
 
         let spawnTimer = 0;
 
-        // --- BUCLE PRINCIPAL ---
+        // --- BUCLE PRINCIPAL DE ANIMACIÓN ---
         function animate() {
             requestAnimationFrame(animate);
 
             if (!isGameOver) {
-                // Transición de carril fluida
+                // Suavizado de cambio de carril
                 const targetX = lanePositions[currentLane + 1];
                 playerGroup.position.x += (targetX - playerGroup.position.x) * 0.18;
-                playerGroup.position.z = 0;
 
-                // Generación regular de entidades
+                // Generación periódica
                 spawnTimer += 0.016;
                 if (spawnTimer > 1.1) {
                     spawnTimer = 0;
