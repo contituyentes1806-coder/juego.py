@@ -22,8 +22,8 @@
             display: flex;
             gap: 10px;
             z-index: 100;
-            width: 90%;
-            max-width: 400px;
+            width: 92%;
+            max-width: 450px;
             justify-content: center;
         }
 
@@ -31,13 +31,19 @@
             background: rgba(10, 12, 24, 0.85);
             border: 2px solid #00d2ff;
             border-radius: 8px;
-            padding: 6px 12px;
+            padding: 6px 10px;
             color: #ffffff;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 13px;
             box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
             text-align: center;
             flex: 1;
+        }
+
+        .diff-tag {
+            color: #ffcc00;
+            display: block;
+            font-size: 11px;
         }
 
         #controls-container {
@@ -116,7 +122,10 @@
 <body>
 
     <div id="ui-container">
-        <div class="ui-box">NIVEL: <span id="level-val">1</span></div>
+        <div class="ui-box">
+            ETAPA: <span id="stage-val">1</span>
+            <span id="diff-val" class="diff-tag">FÁCIL</span>
+        </div>
         <div class="ui-box">PTS: <span id="score-val">0</span></div>
         <div class="ui-box">VIDAS: <span id="lives-val">❤️❤️❤️</span></div>
     </div>
@@ -139,7 +148,7 @@
     </div>
 
     <script>
-        // --- SINTETIZADOR DE AUDIO (WEB AUDIO API) ---
+        // --- AUDIO ---
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         let audioCtx = null;
 
@@ -148,10 +157,9 @@
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
-        function playBrakeSound(duration = 0.5) {
+        function playBrakeSound(duration = 0.4) {
             initAudio();
             const now = audioCtx.currentTime;
-
             const osc = audioCtx.createOscillator();
             osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(800, now);
@@ -162,49 +170,40 @@
             filter.frequency.setValueAtTime(1200, now);
             filter.Q.setValueAtTime(4, now);
 
-            const lfo = audioCtx.createOscillator();
-            lfo.type = 'sine';
-            lfo.frequency.setValueAtTime(30, now);
-
-            const lfoGain = audioCtx.createGain();
-            lfoGain.gain.setValueAtTime(120, now);
-            lfo.connect(osc.frequency);
-
             const masterGain = audioCtx.createGain();
             masterGain.gain.setValueAtTime(0.01, now);
-            masterGain.gain.linearRampToValueAtTime(0.25, now + 0.04);
+            masterGain.gain.linearRampToValueAtTime(0.2, now + 0.04);
             masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
             osc.connect(filter);
             filter.connect(masterGain);
             masterGain.connect(audioCtx.destination);
-
             osc.start(now);
-            lfo.start(now);
             osc.stop(now + duration);
-            lfo.stop(now + duration);
         }
 
-        // --- ESCENA Y NIEBLA RETRO ---
+        // --- ESCENA Y NIEBLA ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050711);
-        scene.fog = new THREE.FogExp2(0x050711, 0.015);
+        const dayColor = new THREE.Color(0xa0c4ff);
+        const sunsetColor = new THREE.Color(0xff7b00);
+        const nightColor = new THREE.Color(0x050711);
 
-        // --- CÁMARA CON ADAPTABILIDAD MÓVIL ---
+        scene.background = dayColor.clone();
+        scene.fog = new THREE.FogExp2(dayColor.clone(), 0.012);
+
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        // --- ILUMINACIÓN ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
+        // --- ILUMINACIÓN DÍA / NOCHE ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
         scene.add(ambientLight);
 
-        const sun = new THREE.DirectionalLight(0xffd2a0, 1.0);
+        const sun = new THREE.DirectionalLight(0xffffff, 1.2);
         sun.position.set(20, 40, 20);
         sun.castShadow = true;
         sun.shadow.mapSize.width = 2048;
@@ -213,7 +212,7 @@
 
         // --- PISTA ---
         const roadGeo = new THREE.PlaneGeometry(12, 1000);
-        const roadMat = new THREE.MeshStandardMaterial({ color: 0x121318, roughness: 0.6, metalness: 0.1 });
+        const roadMat = new THREE.MeshStandardMaterial({ color: 0x22252a, roughness: 0.6 });
         const road = new THREE.Mesh(roadGeo, roadMat);
         road.rotation.x = -Math.PI / 2;
         road.position.z = -450;
@@ -222,7 +221,6 @@
 
         const lineGeo = new THREE.PlaneGeometry(0.2, 1000);
         const lineMat = new THREE.MeshBasicMaterial({ color: 0x00d2ff });
-        
         const leftLine = new THREE.Mesh(lineGeo, lineMat);
         leftLine.rotation.x = -Math.PI / 2;
         leftLine.position.set(-5.9, 0.02, -450);
@@ -232,9 +230,8 @@
         rightLine.position.x = 5.9;
         scene.add(rightLine);
 
-        // --- AUTO 3D ---
+        // --- AUTO ---
         const playerGroup = new THREE.Group();
-
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0088ff, metalness: 0.8, roughness: 0.2 });
         const glassMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.9, roughness: 0.05 });
         const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
@@ -256,7 +253,6 @@
 
         const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.22, 20);
         wheelGeo.rotateZ(Math.PI / 2);
-
         [[-0.75, 0.3, 0.8], [0.75, 0.3, 0.8], [-0.75, 0.3, -0.8], [0.75, 0.3, -0.8]].forEach(pos => {
             const w = new THREE.Mesh(wheelGeo, wheelMat);
             w.position.set(...pos);
@@ -264,7 +260,7 @@
             playerGroup.add(w);
         });
 
-        const headlightL = new THREE.SpotLight(0xffffff, 2, 25, Math.PI / 6, 0.5);
+        const headlightL = new THREE.SpotLight(0xffffff, 0, 25, Math.PI / 6, 0.5);
         headlightL.position.set(-0.5, 0.4, -1.3);
         headlightL.target.position.set(-0.5, 0, -10);
         playerGroup.add(headlightL);
@@ -293,17 +289,68 @@
         }
         updateCameraFOV();
 
-        // --- FABRICA DE OBSTÁCULOS ---
+        // --- MODELADO MEJORADO DE PEATONES 3D ---
+        function createPedestrian() {
+            const group = new THREE.Group();
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.7 });
+            const clothesMat = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, roughness: 0.5 });
+            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1a202c, roughness: 0.8 });
+
+            // Torso
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.65, 12), clothesMat);
+            torso.position.y = 0.75;
+            torso.castShadow = true;
+            group.add(torso);
+
+            // Cabeza
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), skinMat);
+            head.position.y = 1.2;
+            head.castShadow = true;
+            group.add(head);
+
+            // Brazos
+            const armGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.5);
+            const leftArm = new THREE.Mesh(armGeo, clothesMat);
+            leftArm.position.set(-0.25, 0.75, 0);
+            leftArm.castShadow = true;
+            group.add(leftArm);
+
+            const rightArm = leftArm.clone();
+            rightArm.position.x = 0.25;
+            group.add(rightArm);
+
+            // Piernas
+            const legGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.55);
+            const leftLeg = new THREE.Mesh(legGeo, pantsMat);
+            leftLeg.position.set(-0.1, 0.28, 0);
+            leftLeg.castShadow = true;
+            group.add(leftLeg);
+
+            const rightLeg = leftLeg.clone();
+            rightLeg.position.x = 0.1;
+            group.add(rightLeg);
+
+            group.userData = {
+                type: 'pedestrian',
+                leftLeg, rightLeg, leftArm, rightArm,
+                direction: Math.random() > 0.5 ? 1 : -1,
+                walkSpeed: 0.035 + Math.random() * 0.02,
+                animTimer: Math.random() * 10
+            };
+
+            group.rotation.y = group.userData.direction === 1 ? Math.PI / 2 : -Math.PI / 2;
+            return group;
+        }
+
+        // --- FABRICA DE OBSTÁCULOS Y ENTIDADES ---
         function createCone() {
             const group = new THREE.Group();
-            const coneMat = new THREE.MeshStandardMaterial({ color: 0xff5500, roughness: 0.3 });
-            const cone = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.9, 16), coneMat);
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.9, 16), new THREE.MeshStandardMaterial({ color: 0xff5500, roughness: 0.3 }));
             cone.position.y = 0.45;
             cone.castShadow = true;
             group.add(cone);
 
-            const bandMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1 });
-            const band = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, 0.2, 16), bandMat);
+            const band = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, 0.2, 16), new THREE.MeshStandardMaterial({ color: 0xffffff }));
             band.position.y = 0.45;
             group.add(band);
             return group;
@@ -311,9 +358,7 @@
 
         function createMotorcycle() {
             const group = new THREE.Group();
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xcc0022, metalness: 0.6 });
-            
-            const mBody = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 1.4), bodyMat);
+            const mBody = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 1.4), new THREE.MeshStandardMaterial({ color: 0xcc0022, metalness: 0.6 }));
             mBody.position.y = 0.4;
             mBody.castShadow = true;
             group.add(mBody);
@@ -334,23 +379,80 @@
             return block;
         }
 
-        // --- ESTADO Y MANEJO DE CONTROLES ---
+        // --- ESTADO DE DIFICULTAD Y CICLO DÍA/NOCHE ---
         let currentLane = 0;
         const lanePositions = [-3.6, 0, 3.6];
-        let score = 0, level = 1, lives = 3;
-        let baseSpeed = 0.5, currentSpeed = baseSpeed;
+        let score = 0, stage = 1, lives = 3;
+        let baseSpeed = 0.45, currentSpeed = baseSpeed;
+        let spawnInterval = 1.3;
         let isGameOver = false;
 
         const obstacles = [];
         const collectibles = [];
 
+        function updateDifficultyAndLighting() {
+            // Cambio de Etapa y Dificultad
+            let diffText = "FÁCIL";
+            if (score < 100) {
+                stage = 1;
+                diffText = "FÁCIL";
+                baseSpeed = 0.45;
+                spawnInterval = 1.2;
+            } else if (score < 250) {
+                stage = 2;
+                diffText = "MEDIO";
+                baseSpeed = 0.6;
+                spawnInterval = 0.95;
+            } else {
+                stage = 3;
+                diffText = "DIFÍCIL";
+                baseSpeed = 0.75;
+                spawnInterval = 0.7;
+            }
+
+            // Transición Progresiva Día -> Atardecer -> Noche
+            const targetColor = new THREE.Color();
+            let sunIntensity = 1.2;
+            let headlightIntensity = 0;
+
+            if (score < 100) {
+                // Día
+                targetColor.copy(dayColor);
+                sunIntensity = 1.2;
+                headlightIntensity = 0;
+            } else if (score < 250) {
+                // Atardecer (Transición)
+                const t = (score - 100) / 150;
+                targetColor.lerpColors(dayColor, sunsetColor, t);
+                sunIntensity = 1.2 - (0.6 * t);
+                headlightIntensity = t * 1.5;
+            } else {
+                // Noche
+                const t = Math.min(1, (score - 250) / 200);
+                targetColor.lerpColors(sunsetColor, nightColor, t);
+                sunIntensity = 0.6 - (0.45 * t);
+                headlightIntensity = 1.5 + (1.5 * t);
+            }
+
+            scene.background.lerp(targetColor, 0.05);
+            scene.fog.color.lerp(targetColor, 0.05);
+            sun.intensity = THREE.MathUtils.lerp(sun.intensity, sunIntensity, 0.05);
+            ambientLight.intensity = THREE.MathUtils.lerp(ambientLight.intensity, sunIntensity * 0.5, 0.05);
+            headlightL.intensity = THREE.MathUtils.lerp(headlightL.intensity, headlightIntensity, 0.05);
+            headlightR.intensity = THREE.MathUtils.lerp(headlightR.intensity, headlightIntensity, 0.05);
+
+            document.getElementById('stage-val').innerText = stage;
+            document.getElementById('diff-val').innerText = diffText;
+        }
+
+        // --- CONTROLES ---
         window.addEventListener('keydown', (e) => {
             if (isGameOver) return;
             if ((e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') && currentLane > -1) currentLane--;
             if ((e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') && currentLane < 1) currentLane++;
-            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') currentSpeed = baseSpeed * 1.7;
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') currentSpeed = baseSpeed * 1.6;
             if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
-                currentSpeed = baseSpeed * 0.5;
+                currentSpeed = baseSpeed * 0.45;
                 playBrakeSound(0.4);
             }
         });
@@ -372,26 +474,36 @@
 
         bindBtn('btn-left', () => { if (!isGameOver && currentLane > -1) currentLane--; });
         bindBtn('btn-right', () => { if (!isGameOver && currentLane < 1) currentLane++; });
-        bindBtn('btn-boost', () => { if (!isGameOver) currentSpeed = baseSpeed * 1.7; }, () => { currentSpeed = baseSpeed; });
+        bindBtn('btn-boost', () => { if (!isGameOver) currentSpeed = baseSpeed * 1.6; }, () => { currentSpeed = baseSpeed; });
         bindBtn('btn-brake', () => { 
             if (!isGameOver) { 
-                currentSpeed = baseSpeed * 0.5; 
+                currentSpeed = baseSpeed * 0.45; 
                 playBrakeSound(0.4);
             } 
         }, () => { currentSpeed = baseSpeed; });
 
-        // --- GENERACIÓN ---
+        // --- SPANWING DE ENTIDADES SEGÚN DIFICULTAD ---
         function spawnObstacle() {
             if (isGameOver) return;
             const rand = Math.random();
             let obs;
 
-            if (rand < 0.4) obs = createCone();
-            else if (rand < 0.75) obs = createMotorcycle();
-            else obs = createBlock();
+            if (stage === 1) { // Fácil: conos y bloques
+                obs = rand < 0.6 ? createCone() : createBlock();
+            } else if (stage === 2) { // Medio: conos, bloques y peatones
+                if (rand < 0.4) obs = createCone();
+                else if (rand < 0.7) obs = createBlock();
+                else obs = createPedestrian();
+            } else { // Difícil: incluye motos que cruzan
+                if (rand < 0.3) obs = createCone();
+                else if (rand < 0.55) obs = createBlock();
+                else if (rand < 0.8) obs = createPedestrian();
+                else obs = createMotorcycle();
+            }
 
             const lane = Math.floor(Math.random() * 3) - 1;
-            obs.position.set(lanePositions[lane + 1], 0, -80);
+            const posX = (obs.userData && obs.userData.type === 'pedestrian') ? (obs.userData.direction === 1 ? -6.5 : 6.5) : lanePositions[lane + 1];
+            obs.position.set(posX, 0, -80);
             scene.add(obs);
             obstacles.push(obs);
         }
@@ -415,26 +527,41 @@
             requestAnimationFrame(animate);
 
             if (!isGameOver) {
+                updateDifficultyAndLighting();
+
                 const targetX = lanePositions[currentLane + 1];
                 playerGroup.position.x += (targetX - playerGroup.position.x) * 0.18;
 
                 spawnTimer += 0.016;
-                if (spawnTimer > 1.0) {
+                if (spawnTimer > spawnInterval) {
                     spawnTimer = 0;
-                    if (Math.random() > 0.3) spawnObstacle();
+                    if (Math.random() > 0.25) spawnObstacle();
                     if (Math.random() > 0.35) spawnCollectible();
                 }
 
-                // Obstáculos
+                // Obstáculos y Peatones
                 for (let i = obstacles.length - 1; i >= 0; i--) {
                     const obs = obstacles[i];
                     obs.position.z += currentSpeed;
 
+                    // Comportamiento de Peatón (Cruce lateral + Animación)
+                    if (obs.userData && obs.userData.type === 'pedestrian') {
+                        obs.position.x += obs.userData.walkSpeed * obs.userData.direction;
+                        obs.userData.animTimer += 0.15;
+                        const angle = Math.sin(obs.userData.animTimer) * 0.45;
+                        obs.userData.leftLeg.rotation.x = angle;
+                        obs.userData.rightLeg.rotation.x = -angle;
+                        obs.userData.leftArm.rotation.x = -angle;
+                        obs.userData.rightArm.rotation.x = angle;
+                    }
+
+                    // Comportamiento de Moto
                     if (obs.userData && obs.userData.type === 'motorcycle') {
-                        obs.position.x += 0.03 * obs.userData.direction;
+                        obs.position.x += 0.035 * obs.userData.direction;
                         if (Math.abs(obs.position.x) > 5) obs.userData.direction *= -1;
                     }
 
+                    // Colisión
                     if (Math.abs(obs.position.z - playerGroup.position.z) < 1.1 &&
                         Math.abs(obs.position.x - playerGroup.position.x) < 0.85) {
                         scene.remove(obs);
@@ -445,7 +572,7 @@
                         continue;
                     }
 
-                    if (obs.position.z > 6) {
+                    if (obs.position.z > 6 || Math.abs(obs.position.x) > 8) {
                         scene.remove(obs);
                         obstacles.splice(i, 1);
                     }
@@ -461,11 +588,7 @@
                         Math.abs(item.position.x - playerGroup.position.x) < 0.85) {
                         scene.remove(item);
                         collectibles.splice(i, 1);
-                        score += 10;
-                        if (score >= level * 100) {
-                            level++;
-                            baseSpeed += 0.04;
-                        }
+                        score += 15;
                         updateUI();
                         continue;
                     }
@@ -482,7 +605,6 @@
 
         function updateUI() {
             document.getElementById('score-val').innerText = score;
-            document.getElementById('level-val').innerText = level;
             document.getElementById('lives-val').innerText = '❤️'.repeat(Math.max(0, lives));
         }
 
@@ -499,9 +621,9 @@
             collectibles.length = 0;
 
             score = 0;
-            level = 1;
+            stage = 1;
             lives = 3;
-            baseSpeed = 0.5;
+            baseSpeed = 0.45;
             currentSpeed = baseSpeed;
             currentLane = 0;
             isGameOver = false;
