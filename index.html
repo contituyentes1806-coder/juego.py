@@ -114,9 +114,7 @@
             background: #ffe066;
         }
     </style>
-    <!-- Three.js y GLTFLoader -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
 
@@ -144,107 +142,62 @@
     </div>
 
     <script>
-        // --- CONFIGURACIÓN PRINCIPAL DE THREE.JS ---
+        // --- INICIALIZACIÓN ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0d0e15);
-        scene.fog = new THREE.FogExp2(0x0d0e15, 0.015);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
         // --- ILUMINACIÓN ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
         scene.add(ambientLight);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        dirLight.position.set(10, 20, 10);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        dirLight.position.set(0, 10, 5);
         scene.add(dirLight);
 
-        // --- PISTA DE CARRERAS ---
-        const roadWidth = 10;
-        const roadGeo = new THREE.PlaneGeometry(roadWidth, 1000);
-        const roadMat = new THREE.MeshStandardMaterial({ color: 0x333338, roughness: 0.8 });
+        // --- PISTA ---
+        const roadGeo = new THREE.PlaneGeometry(10, 1000);
+        const roadMat = new THREE.MeshBasicMaterial({ color: 0x222225 });
         const road = new THREE.Mesh(roadGeo, roadMat);
         road.rotation.x = -Math.PI / 2;
         road.position.z = -450;
         scene.add(road);
 
-        // Líneas laterales
-        const lineGeo = new THREE.PlaneGeometry(0.3, 1000);
-        const lineMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
-        
-        const leftLine = new THREE.Mesh(lineGeo, lineMat);
-        leftLine.rotation.x = -Math.PI / 2;
-        leftLine.position.set(-roadWidth / 2 + 0.2, 0.01, -450);
-        scene.add(leftLine);
+        // --- AUTO JUGADOR (MOLDEADO DIRECTO EN ESCENA) ---
+        const playerGroup = new THREE.Group();
 
-        const rightLine = new THREE.Mesh(lineGeo, lineMat);
-        rightLine.rotation.x = -Math.PI / 2;
-        rightLine.position.set(roadWidth / 2 - 0.2, 0.01, -450);
-        scene.add(rightLine);
-
-        // --- CONSTRUCCIÓN DE UN AUTO DE RESPALDO (PROCEDURAL 3D) ---
-        const carGroup = new THREE.Group();
-
-        // Chasis principal (Azul Cian)
-        const bodyGeo = new THREE.BoxGeometry(1.4, 0.5, 2.6);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00d2ff, roughness: 0.2, metalness: 0.5 });
+        // Carrocería Azul
+        const bodyGeo = new THREE.BoxGeometry(1.4, 0.6, 2.6);
+        const bodyMat = new THREE.MeshBasicMaterial({ color: 0x00d2ff });
         const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-        bodyMesh.position.y = 0.4;
-        carGroup.add(bodyMesh);
+        bodyMesh.position.y = 0.5;
+        playerGroup.add(bodyMesh);
 
-        // Cabina/Parabrisas (Oscuro)
-        const cabinGeo = new THREE.BoxGeometry(1.1, 0.4, 1.2);
-        const cabinMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.1 });
+        // Techo Oscuro
+        const cabinGeo = new THREE.BoxGeometry(1.0, 0.4, 1.2);
+        const cabinMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
         const cabinMesh = new THREE.Mesh(cabinGeo, cabinMat);
-        cabinMesh.position.set(0, 0.75, -0.2);
-        carGroup.add(cabinMesh);
+        cabinMesh.position.set(0, 0.9, -0.1);
+        playerGroup.add(cabinMesh);
 
-        // Ruedas (Negras)
-        const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16);
-        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-        wheelGeo.rotateZ(Math.PI / 2);
+        // Posición inicial fija del contenedor del auto
+        playerGroup.position.set(0, 0, 0);
+        scene.add(playerGroup);
 
-        const wheelPositions = [
-            [-0.75, 0.3, 0.8],  // Delantera Izq
-            [0.75, 0.3, 0.8],   // Delantera Der
-            [-0.75, 0.3, -0.8], // Trasera Izq
-            [0.75, 0.3, -0.8]   // Trasera Der
-        ];
-
-        wheelPositions.forEach(pos => {
-            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-            wheel.position.set(pos[0], pos[1], pos[2]);
-            carGroup.add(wheel);
-        });
-
-        carGroup.position.set(0, 0, 0);
-        scene.add(carGroup);
-
-        // --- CARGA DEL MODELO GLB (Reemplaza el auto procedural si carga con éxito) ---
-        let playerCar = null;
-        const gltfLoader = new THREE.GLTFLoader();
-        
-        gltfLoader.load('./player_car.glb', (gltf) => {
-            playerCar = gltf.scene;
-            playerCar.scale.set(0.6, 0.6, 0.6);
-            playerCar.position.set(0, 0, 0);
-            playerCar.rotation.y = Math.PI; // Rotación corregida hacia adelante
-            
-            scene.remove(carGroup); // Reemplaza el modelo procedural por el GLB cargado
-            scene.add(playerCar);
-        }, undefined, (error) => {
-            console.warn("No se pudo cargar player_car.glb. Se utiliza el vehículo 3D interno.");
-        });
+        // --- CÁMARA (HIJA DEL AUTO / SIGUE AL AUTO SIEMPRE) ---
+        // Emparentar la cámara al auto garantiza que NUNCA pueda salir de pantalla
+        playerGroup.add(camera);
+        camera.position.set(0, 3, 5);
+        camera.lookAt(0, 0.5, -5);
 
         // --- ESTADO DEL JUEGO ---
-        let currentLane = 0; // -1: Izquierda, 0: Centro, 1: Derecha
+        let currentLane = 0;
         const lanePositions = [-3, 0, 3];
-        let targetX = 0;
-        
         let score = 0;
         let level = 1;
         let lives = 3;
@@ -255,40 +208,26 @@
         const obstacles = [];
         const collectibles = [];
 
-        // --- CÁMARA ---
-        camera.position.set(0, 3.5, 6);
-        camera.lookAt(0, 1, -5);
-
-        // --- TECLADO ---
+        // --- CONTROLES ---
         window.addEventListener('keydown', (e) => {
             if (isGameOver) return;
-            if ((e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') && currentLane > -1) {
-                currentLane--;
-            }
-            if ((e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') && currentLane < 1) {
-                currentLane++;
-            }
-            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
-                currentSpeed = baseSpeed * 1.8;
-            }
-            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
-                currentSpeed = baseSpeed * 0.5;
-            }
+            if ((e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') && currentLane > -1) currentLane--;
+            if ((e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') && currentLane < 1) currentLane++;
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') currentSpeed = baseSpeed * 1.8;
+            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') currentSpeed = baseSpeed * 0.5;
         });
 
         window.addEventListener('keyup', (e) => {
-            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
-                currentSpeed = baseSpeed;
-            }
+            if (['ArrowUp', 'w', 'W', 'ArrowDown', 's', 'S'].includes(e.key)) currentSpeed = baseSpeed;
         });
 
-        // --- CONTROLES TÁCTILES ---
         const bindBtn = (id, actionDown, actionUp) => {
             const btn = document.getElementById(id);
-            btn.addEventListener('touchstart', (e) => { e.preventDefault(); actionDown(); });
+            if(!btn) return;
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); actionDown(); }, {passive: false});
             btn.addEventListener('mousedown', actionDown);
             if (actionUp) {
-                btn.addEventListener('touchend', (e) => { e.preventDefault(); actionUp(); });
+                btn.addEventListener('touchend', (e) => { e.preventDefault(); actionUp(); }, {passive: false});
                 btn.addEventListener('mouseup', actionUp);
             }
         };
@@ -301,41 +240,43 @@
         // --- GENERACIÓN DE ELEMENTOS ---
         function spawnObstacle() {
             if (isGameOver) return;
-            const geo = new THREE.CylinderGeometry(0.5, 0.5, 1.2, 16);
-            const mat = new THREE.MeshStandardMaterial({ color: 0xd9534f });
-            const obs = new THREE.Mesh(geo, mat);
+            const obs = new THREE.Mesh(
+                new THREE.BoxGeometry(1, 1, 1),
+                new THREE.MeshBasicMaterial({ color: 0xff3333 })
+            );
             const lane = Math.floor(Math.random() * 3) - 1;
-            obs.position.set(lanePositions[lane + 1], 0.6, -80);
+            obs.position.set(lanePositions[lane + 1], 0.5, -60);
             scene.add(obs);
             obstacles.push(obs);
         }
 
         function spawnCollectible() {
             if (isGameOver) return;
-            const geo = new THREE.SphereGeometry(0.4, 16, 16);
-            const mat = new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0x886600 });
-            const item = new THREE.Mesh(geo, mat);
+            const item = new THREE.Mesh(
+                new THREE.SphereGeometry(0.4, 8, 8),
+                new THREE.MeshBasicMaterial({ color: 0xffcc00 })
+            );
             const lane = Math.floor(Math.random() * 3) - 1;
-            item.position.set(lanePositions[lane + 1], 0.6, -80);
+            item.position.set(lanePositions[lane + 1], 0.5, -60);
             scene.add(item);
             collectibles.push(item);
         }
 
         let spawnTimer = 0;
 
-        // --- BUCLE PRINCIPAL DE ANIMACIÓN ---
+        // --- BUCLE PRINCIPAL ---
         function animate() {
             requestAnimationFrame(animate);
 
             if (!isGameOver) {
-                // Seleccionar objeto activo para controlar
-                const activePlayer = playerCar || carGroup;
+                // Posicionamiento lateral suave en X
+                const targetX = lanePositions[currentLane + 1];
+                playerGroup.position.x += (targetX - playerGroup.position.x) * 0.2;
+                
+                // MANTENER Z SIEMPRE EN 0 (Bloquea que el auto salga despedido hacia adelante o atrás)
+                playerGroup.position.z = 0;
 
-                // Suavizar movimiento horizontal
-                targetX = lanePositions[currentLane + 1];
-                activePlayer.position.x += (targetX - activePlayer.position.x) * 0.15;
-
-                // Spawns
+                // Generación de objetos
                 spawnTimer += 0.016;
                 if (spawnTimer > 1.2) {
                     spawnTimer = 0;
@@ -343,14 +284,13 @@
                     if (Math.random() > 0.3) spawnCollectible();
                 }
 
-                // Mover obstáculos
+                // Mover obstáculos hacia el jugador
                 for (let i = obstacles.length - 1; i >= 0; i--) {
                     const obs = obstacles[i];
                     obs.position.z += currentSpeed;
 
-                    // Colisión
-                    if (Math.abs(obs.position.z - activePlayer.position.z) < 1.4 &&
-                        Math.abs(obs.position.x - activePlayer.position.x) < 0.9) {
+                    if (Math.abs(obs.position.z - playerGroup.position.z) < 1.0 &&
+                        Math.abs(obs.position.x - playerGroup.position.x) < 0.8) {
                         scene.remove(obs);
                         obstacles.splice(i, 1);
                         lives--;
@@ -359,21 +299,19 @@
                         continue;
                     }
 
-                    if (obs.position.z > 10) {
+                    if (obs.position.z > 5) {
                         scene.remove(obs);
                         obstacles.splice(i, 1);
                     }
                 }
 
-                // Mover coleccionables
+                // Mover coleccionables hacia el jugador
                 for (let i = collectibles.length - 1; i >= 0; i--) {
                     const item = collectibles[i];
                     item.position.z += currentSpeed;
-                    item.rotation.y += 0.03;
 
-                    // Recolección
-                    if (Math.abs(item.position.z - activePlayer.position.z) < 1.4 &&
-                        Math.abs(item.position.x - activePlayer.position.x) < 0.9) {
+                    if (Math.abs(item.position.z - playerGroup.position.z) < 1.0 &&
+                        Math.abs(item.position.x - playerGroup.position.x) < 0.8) {
                         scene.remove(item);
                         collectibles.splice(i, 1);
                         score += 5;
@@ -385,7 +323,7 @@
                         continue;
                     }
 
-                    if (item.position.z > 10) {
+                    if (item.position.z > 5) {
                         scene.remove(item);
                         collectibles.splice(i, 1);
                     }
@@ -421,20 +359,18 @@
             currentLane = 0;
             isGameOver = false;
 
-            const activePlayer = playerCar || carGroup;
-            activePlayer.position.set(0, 0, 0);
-
+            playerGroup.position.set(0, 0, 0);
             updateUI();
             document.getElementById('game-over-screen').style.display = 'none';
         }
 
-        // Ajustar pantalla al redimensionar ventana
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
+        // Iniciar renderizado
         animate();
     </script>
 </body>
