@@ -186,7 +186,7 @@
         rightLine.position.set(roadWidth / 2 - 0.2, 0.01, -450);
         scene.add(rightLine);
 
-        // --- JUGADOR (Cubo temporal + Carga de Modelo .GLB) ---
+        // --- JUGADOR (Malla Base + Carga GLB Segura) ---
         let playerCar = null;
         const playerMesh = new THREE.Mesh(
             new THREE.BoxGeometry(1.2, 0.6, 2.2),
@@ -195,20 +195,19 @@
         playerMesh.position.set(0, 0.3, 0);
         scene.add(playerMesh);
 
-        // Carga del modelo 3D GLB desde el directorio raíz
+        // Intentar cargar player_car.glb desde la raíz
         const gltfLoader = new THREE.GLTFLoader();
         gltfLoader.load('./player_car.glb', (gltf) => {
             playerCar = gltf.scene;
-            playerCar.scale.set(0.8, 0.8, 0.8);
+            playerCar.scale.set(0.5, 0.5, 0.5);
+            playerCar.position.set(0, 0.1, 0);
+            playerCar.rotation.y = Math.PI;
             
-            // Corrección de rotación del auto
-            playerCar.rotation.y = Math.PI; 
-            playerCar.position.set(0, 0, 0);
-            
-            scene.remove(playerMesh);
+            playerMesh.visible = false; // Oculta el cubo si el auto carga bien
             scene.add(playerCar);
         }, undefined, (error) => {
-            console.warn("No se pudo cargar player_car.glb en el directorio raíz. Usando cubo por defecto.");
+            console.warn("No se pudo cargar player_car.glb. Se mantiene la malla predeterminada.");
+            playerMesh.visible = true;
         });
 
         // --- ESTADO DEL JUEGO ---
@@ -301,7 +300,7 @@
             if (!isGameOver) {
                 // Suavizar movimiento horizontal
                 targetX = lanePositions[currentLane + 1];
-                const activePlayer = playerCar || playerMesh;
+                const activePlayer = (playerCar && playerCar.parent) ? playerCar : playerMesh;
                 activePlayer.position.x += (targetX - activePlayer.position.x) * 0.15;
 
                 // Spawns
@@ -390,7 +389,7 @@
             currentLane = 0;
             isGameOver = false;
 
-            const activePlayer = playerCar || playerMesh;
+            const activePlayer = (playerCar && playerCar.parent) ? playerCar : playerMesh;
             activePlayer.position.set(0, 0.3, 0);
 
             updateUI();
