@@ -23,7 +23,7 @@
             gap: 10px;
             z-index: 100;
             width: 92%;
-            max-width: 450px;
+            max-width: 480px;
             justify-content: center;
         }
 
@@ -44,6 +44,34 @@
             color: #ffcc00;
             display: block;
             font-size: 11px;
+        }
+
+        /* Cartel de Alerta Titilante en Pantalla */
+        #warning-banner {
+            position: absolute;
+            top: 68px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 51, 0, 0.9);
+            color: #ffffff;
+            border: 3px solid #ffff00;
+            border-radius: 10px;
+            padding: 10px 22px;
+            font-weight: 900;
+            font-size: 16px;
+            letter-spacing: 1px;
+            text-shadow: 0 0 8px #000;
+            box-shadow: 0 0 20px rgba(255, 51, 0, 0.9);
+            display: none;
+            z-index: 150;
+            animation: blink 0.4s infinite alternate;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        @keyframes blink {
+            from { opacity: 1; transform: translateX(-50%) scale(1); }
+            to { opacity: 0.25; transform: translateX(-50%) scale(0.96); }
         }
 
         #controls-container {
@@ -85,6 +113,20 @@
             transform: scale(0.92);
         }
 
+        #audio-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 101;
+            background: rgba(0, 210, 255, 0.2);
+            border: 1px solid #00d2ff;
+            color: white;
+            border-radius: 5px;
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
         #game-over-screen {
             position: absolute;
             inset: 0;
@@ -121,6 +163,8 @@
 </head>
 <body>
 
+    <button id="audio-btn" onclick="toggleAudio()">🔊 AUDIO</button>
+
     <div id="ui-container">
         <div class="ui-box">
             ETAPA: <span id="stage-val">1</span>
@@ -129,6 +173,9 @@
         <div class="ui-box">PTS: <span id="score-val">0</span></div>
         <div class="ui-box">VIDAS: <span id="lives-val">❤️❤️❤️</span></div>
     </div>
+
+    <!-- Indicador HUD previo que titila en pantalla -->
+    <div id="warning-banner">⚠️ ¡PRECAUCIÓN! ANIMALES EN RUTA</div>
 
     <div id="controls-container">
         <div class="btn-group">
@@ -148,83 +195,190 @@
     </div>
 
     <script>
-        // --- CANVASES Y TEXTURAS ---
-        function createTextTexture(text, bgColor = '#ffcc00', textColor = '#000000') {
+        // --- TEXTURAS HD PARA CARTELES ---
+        function createTextTexture(title, subtitle, bgColor = '#f1c40f') {
             const canvas = document.createElement('canvas');
-            canvas.width = 256;
-            canvas.height = 128;
+            canvas.width = 512;
+            canvas.height = 384;
             const ctx = canvas.getContext('2d');
             
+            // Fondo cartel vial
             ctx.fillStyle = bgColor;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 8;
-            ctx.strokeRect(6, 6, canvas.width - 12, canvas.height - 12);
+            ctx.lineWidth = 16;
+            ctx.strokeRect(12, 12, canvas.width - 24, canvas.height - 24);
 
-            ctx.fillStyle = textColor;
-            ctx.font = 'bold 26px Arial';
+            ctx.fillStyle = '#000000';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            const lines = text.split('\n');
-            if (lines.length === 1) {
-                ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-            } else {
-                ctx.fillText(lines[0], canvas.width / 2, canvas.height / 2 - 18);
-                ctx.fillText(lines[1], canvas.width / 2, canvas.height / 2 + 18);
-            }
+            ctx.font = '900 48px Arial, sans-serif';
+            ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 40);
+            
+            ctx.font = 'bold 36px Arial, sans-serif';
+            ctx.fillText(subtitle, canvas.width / 2, canvas.height / 2 + 40);
 
             const texture = new THREE.CanvasTexture(canvas);
             texture.needsUpdate = true;
             return texture;
         }
 
-        const extraGncTexture = createTextTexture('EXTRA GNC', '#ffcc00', '#000000');
-        const signAnimalTexture = createTextTexture('PRECAUCIÓN\nANIMALES', '#f1c40f', '#000000');
-        const signPedestrianTexture = createTextTexture('PRECAUCIÓN\nPEATONES', '#f1c40f', '#000000');
+        const extraGncTexture = createTextTexture('EXTRA', 'GNC', '#ffcc00');
+        const signAnimalTexture = createTextTexture('PRECAUCIÓN', 'ANIMALES', '#f39c12');
+        const signPedestrianTexture = createTextTexture('PRECAUCIÓN', 'PEATONES', '#f39c12');
 
-        // --- AUDIO ---
+        // --- SISTEMA DE AUDIO (Web Audio API) ---
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         let audioCtx = null;
+        let audioEnabled = true;
+
+        // Nodos del Motor
+        let engineOsc = null;
+        let engineGain = null;
+
+        // Nodos de Música
+        let musicTimer = null;
 
         function initAudio() {
-            if (!audioCtx) audioCtx = new AudioCtx();
+            if (!audioCtx) {
+                audioCtx = new AudioCtx();
+                startEngineSound();
+                startBackgroundMusic();
+            }
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
-        function playBrakeSound(duration = 0.4) {
-            initAudio();
-            const now = audioCtx.currentTime;
-            const osc = audioCtx.createOscillator();
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(800, now);
-            osc.frequency.exponentialRampToValueAtTime(350, now + duration);
-
-            const filter = audioCtx.createBiquadFilter();
-            filter.type = 'bandpass';
-            filter.frequency.setValueAtTime(1200, now);
-            filter.Q.setValueAtTime(4, now);
-
-            const masterGain = audioCtx.createGain();
-            masterGain.gain.setValueAtTime(0.01, now);
-            masterGain.gain.linearRampToValueAtTime(0.2, now + 0.04);
-            masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-
-            osc.connect(filter);
-            filter.connect(masterGain);
-            masterGain.connect(audioCtx.destination);
-            osc.start(now);
-            osc.stop(now + duration);
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            document.getElementById('audio-btn').innerText = audioEnabled ? "🔊 AUDIO" : "🔇 MUTED";
+            if (audioCtx) {
+                if (audioEnabled) audioCtx.resume();
+                else audioCtx.suspend();
+            }
         }
 
-        // --- ESCENA Y CÁMARA ---
+        // Sonido de Motor Continuo
+        function startEngineSound() {
+            if (!audioCtx) return;
+            engineOsc = audioCtx.createOscillator();
+            engineGain = audioCtx.createGain();
+
+            engineOsc.type = 'sawtooth';
+            engineOsc.frequency.setValueAtTime(60, audioCtx.currentTime);
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(300, audioCtx.currentTime);
+
+            engineGain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+
+            engineOsc.connect(filter);
+            filter.connect(engineGain);
+            engineGain.connect(audioCtx.destination);
+            engineOsc.start();
+        }
+
+        function updateEnginePitch(speedRatio) {
+            if (!engineOsc || !audioCtx) return;
+            const targetFreq = 50 + speedRatio * 120;
+            engineOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+        }
+
+        // Sonido de Frenado
+        function playBrakeSound() {
+            if (!audioCtx || !audioEnabled) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(700, now);
+            osc.frequency.exponentialRampToValueAtTime(200, now + 0.3);
+
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.3);
+        }
+
+        // Sonido de Animal (Mugido Sintetizado)
+        function playAnimalSound() {
+            if (!audioCtx || !audioEnabled) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(130, now);
+            osc.frequency.linearRampToValueAtTime(110, now + 0.4);
+            osc.frequency.linearRampToValueAtTime(140, now + 0.8);
+
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.8);
+        }
+
+        // Sonido de Choque
+        function playCrashSound() {
+            if (!audioCtx || !audioEnabled) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(100, now);
+            osc.frequency.exponentialRampToValueAtTime(30, now + 0.5);
+
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.5);
+        }
+
+        // Música Synthwave Ambiental
+        function startBackgroundMusic() {
+            if (!audioCtx) return;
+            const notes = [110, 130.81, 146.83, 164.81, 146.83, 130.81]; // A2, C3, D3, E3...
+            let step = 0;
+
+            setInterval(() => {
+                if (!audioEnabled || !audioCtx || audioCtx.state !== 'running' || isGameOver) return;
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(notes[step % notes.length], now);
+
+                gain.gain.setValueAtTime(0.03, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+
+                step++;
+            }, 300);
+        }
+
+
+        // --- ESCENA 3D Y ELEMENTOS DEL ENTORNO ---
         const scene = new THREE.Scene();
-        const dayColor = new THREE.Color(0xa0c4ff);
-        const sunsetColor = new THREE.Color(0xff7b00);
+        const dayColor = new THREE.Color(0x87ceeb);
+        const sunsetColor = new THREE.Color(0xff6622);
         const nightColor = new THREE.Color(0x050711);
 
         scene.background = dayColor.clone();
-        scene.fog = new THREE.FogExp2(dayColor.clone(), 0.008);
+        scene.fog = new THREE.FogExp2(dayColor.clone(), 0.007);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -234,37 +388,61 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        // --- ILUMINACIÓN ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        // --- ILUMINACIÓN Y SOL ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         scene.add(ambientLight);
 
-        const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-        sun.position.set(30, 50, 20);
-        sun.castShadow = true;
-        sun.shadow.mapSize.width = 2048;
-        sun.shadow.mapSize.height = 2048;
-        scene.add(sun);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        sunLight.position.set(20, 40, -250);
+        sunLight.castShadow = true;
+        scene.add(sunLight);
 
-        // --- PAISAJE Y ENTORNO ---
-        // Terreno Lateral (Pastizal / Desierto)
+        // Esfera 3D del Sol / Luna en el horizonte
+        const sunGeo = new THREE.SphereGeometry(12, 32, 32);
+        const sunMat = new THREE.MeshBasicMaterial({ color: 0xfff0aa });
+        const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+        sunMesh.position.set(0, 35, -300);
+        scene.add(sunMesh);
+
+        // Nubes 3D Volumétricas
+        const cloudsGroup = new THREE.Group();
+        const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, transparent: true, opacity: 0.85 });
+
+        function createCloud() {
+            const cloud = new THREE.Group();
+            const geo = new THREE.DodecahedronGeometry(6, 1);
+            for (let i = 0; i < 5; i++) {
+                const part = new THREE.Mesh(geo, cloudMat);
+                part.position.set((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 8);
+                part.scale.setScalar(0.6 + Math.random() * 0.8);
+                cloud.add(part);
+            }
+            return cloud;
+        }
+
+        for (let i = 0; i < 14; i++) {
+            const c = createCloud();
+            c.position.set((Math.random() - 0.5) * 180, 30 + Math.random() * 20, -Math.random() * 350);
+            cloudsGroup.add(c);
+        }
+        scene.add(cloudsGroup);
+
+        // Terreno y Ruta
         const terrainMat = new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: 0.9 });
-        const terrainGeo = new THREE.PlaneGeometry(300, 1000);
-        const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+        const terrain = new THREE.Mesh(new THREE.PlaneGeometry(350, 1000), terrainMat);
         terrain.rotation.x = -Math.PI / 2;
         terrain.position.set(0, -0.05, -450);
         terrain.receiveShadow = true;
         scene.add(terrain);
 
-        // Pista / Ruta
-        const roadGeo = new THREE.PlaneGeometry(12, 1000);
         const roadMat = new THREE.MeshStandardMaterial({ color: 0x22252a, roughness: 0.6 });
-        const road = new THREE.Mesh(roadGeo, roadMat);
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(12, 1000), roadMat);
         road.rotation.x = -Math.PI / 2;
         road.position.z = -450;
         road.receiveShadow = true;
         scene.add(road);
 
-        const lineGeo = new THREE.PlaneGeometry(0.2, 1000);
+        const lineGeo = new THREE.PlaneGeometry(0.25, 1000);
         const lineMat = new THREE.MeshBasicMaterial({ color: 0x00d2ff });
         const leftLine = new THREE.Mesh(lineGeo, lineMat);
         leftLine.rotation.x = -Math.PI / 2;
@@ -278,14 +456,14 @@
         // Montañas del Horizonte
         const mountainsGroup = new THREE.Group();
         const mountainMat = new THREE.MeshStandardMaterial({ color: 0x1f3a52, roughness: 1.0 });
-        for (let i = -5; i <= 5; i++) {
-            const m = new THREE.Mesh(new THREE.ConeGeometry(30 + Math.random() * 20, 40 + Math.random() * 30, 5), mountainMat);
-            m.position.set(i * 35, 15, -350);
+        for (let i = -6; i <= 6; i++) {
+            const m = new THREE.Mesh(new THREE.ConeGeometry(35 + Math.random() * 20, 45 + Math.random() * 30, 5), mountainMat);
+            m.position.set(i * 32, 15, -340);
             mountainsGroup.add(m);
         }
         scene.add(mountainsGroup);
 
-        // --- MODELADO DEL AUTO "EXTRA GNC" ---
+        // --- JUGADOR (AUTO "EXTRA GNC") ---
         const playerGroup = new THREE.Group();
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0088ff, metalness: 0.8, roughness: 0.2 });
         const glassMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.9, roughness: 0.05 });
@@ -301,17 +479,12 @@
         cabin.castShadow = true;
         playerGroup.add(cabin);
 
-        const signGeo = new THREE.BoxGeometry(0.8, 0.25, 0.15);
+        const signGeo = new THREE.BoxGeometry(0.85, 0.3, 0.15);
         const signMat = new THREE.MeshStandardMaterial({ map: extraGncTexture, roughness: 0.3 });
         const sign = new THREE.Mesh(signGeo, signMat);
-        sign.position.set(0, 0.98, -0.1);
+        sign.position.set(0, 1.0, -0.1);
         sign.castShadow = true;
         playerGroup.add(sign);
-
-        const wing = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.08, 0.3), bodyMat);
-        wing.position.set(0, 0.85, 1.1);
-        wing.castShadow = true;
-        playerGroup.add(wing);
 
         const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.22, 20);
         wheelGeo.rotateZ(Math.PI / 2);
@@ -322,9 +495,10 @@
             playerGroup.add(w);
         });
 
-        const headlightL = new THREE.SpotLight(0xffffff, 0, 25, Math.PI / 6, 0.5);
+        // Faros Delanteros para la Noche
+        const headlightL = new THREE.SpotLight(0xffffff, 0, 35, Math.PI / 5, 0.4);
         headlightL.position.set(-0.5, 0.4, -1.3);
-        headlightL.target.position.set(-0.5, 0, -10);
+        headlightL.target.position.set(-0.5, 0, -12);
         playerGroup.add(headlightL);
         playerGroup.add(headlightL.target);
 
@@ -351,56 +525,65 @@
         }
         updateCameraFOV();
 
-        // --- ENTIDADES 3D: ARBOLES, PEATONES, ANIMALES, SEÑALES ---
+        // --- CREACIÓN DE ENTIDADES ---
         function createTree() {
             const group = new THREE.Group();
-            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3d28, roughness: 0.9 });
-            const leavesMat = new THREE.MeshStandardMaterial({ color: 0x1e5631, roughness: 0.6 });
-
-            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.35, 2), trunkMat);
-            trunk.position.y = 1;
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.35, 2.2), new THREE.MeshStandardMaterial({ color: 0x5a3d28, roughness: 0.9 }));
+            trunk.position.y = 1.1;
             trunk.castShadow = true;
             group.add(trunk);
 
-            const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.5, 3.5, 8), leavesMat);
-            leaves.position.y = 3;
+            const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.6, 3.8, 8), new THREE.MeshStandardMaterial({ color: 0x1e5631, roughness: 0.6 }));
+            leaves.position.y = 3.2;
             leaves.castShadow = true;
             group.add(leaves);
+            return group;
+        }
 
-            group.userData = { type: 'scenery' };
+        // Carteles de Tránsito Más Grandes y Visibles
+        function createTrafficSign(type) {
+            const group = new THREE.Group();
+            const poleMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.7 });
+            
+            // Doble Poste
+            const pole1 = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.8), poleMat);
+            pole1.position.set(-0.6, 1.9, 0);
+            pole1.castShadow = true;
+            group.add(pole1);
+
+            const pole2 = pole1.clone();
+            pole2.position.x = 0.6;
+            group.add(pole2);
+
+            // Tablero Reflectivo Grande
+            const boardGeo = new THREE.BoxGeometry(2.2, 1.6, 0.1);
+            const tex = type === 'animal' ? signAnimalTexture : signPedestrianTexture;
+            const boardMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.2 });
+            const board = new THREE.Mesh(boardGeo, boardMat);
+            board.position.set(0, 3.0, 0);
+            board.castShadow = true;
+            group.add(board);
+
             return group;
         }
 
         function createPedestrian() {
             const group = new THREE.Group();
-            const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.7 });
-            const clothesMat = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, roughness: 0.5 });
-            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1a202c, roughness: 0.8 });
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac });
+            const clothesMat = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff });
+            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1a202c });
 
-            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.65, 12), clothesMat);
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.65), clothesMat);
             torso.position.y = 0.75;
-            torso.castShadow = true;
             group.add(torso);
 
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), skinMat);
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.14), skinMat);
             head.position.y = 1.2;
-            head.castShadow = true;
             group.add(head);
-
-            const armGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.5);
-            const leftArm = new THREE.Mesh(armGeo, clothesMat);
-            leftArm.position.set(-0.25, 0.75, 0);
-            leftArm.castShadow = true;
-            group.add(leftArm);
-
-            const rightArm = leftArm.clone();
-            rightArm.position.x = 0.25;
-            group.add(rightArm);
 
             const legGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.55);
             const leftLeg = new THREE.Mesh(legGeo, pantsMat);
             leftLeg.position.set(-0.1, 0.28, 0);
-            leftLeg.castShadow = true;
             group.add(leftLeg);
 
             const rightLeg = leftLeg.clone();
@@ -409,12 +592,11 @@
 
             group.userData = {
                 type: 'pedestrian',
-                leftLeg, rightLeg, leftArm, rightArm,
+                leftLeg, rightLeg,
                 direction: Math.random() > 0.5 ? 1 : -1,
-                walkSpeed: 0.035 + Math.random() * 0.02,
+                walkSpeed: 0.04 + Math.random() * 0.02,
                 animTimer: Math.random() * 10
             };
-
             group.rotation.y = group.userData.direction === 1 ? Math.PI / 2 : -Math.PI / 2;
             return group;
         }
@@ -424,79 +606,47 @@
             const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
             const spotMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
 
-            // Cuerpo Vaca
-            const cBody = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 1.4), bodyMat);
-            cBody.position.y = 0.65;
+            const cBody = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.75, 1.5), bodyMat);
+            cBody.position.y = 0.7;
             cBody.castShadow = true;
             group.add(cBody);
 
-            // Cabeza
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 0.5), bodyMat);
-            head.position.set(0, 0.9, -0.8);
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.5, 0.55), bodyMat);
+            head.position.set(0, 1.0, -0.9);
             head.castShadow = true;
             group.add(head);
 
-            // Patas
-            const legGeo = new THREE.BoxGeometry(0.15, 0.4, 0.15);
-            [[-0.3, 0.2, 0.4], [0.3, 0.2, 0.4], [-0.3, 0.2, -0.4], [0.3, 0.2, -0.4]].forEach(pos => {
+            const legGeo = new THREE.BoxGeometry(0.18, 0.45, 0.18);
+            [[-0.32, 0.22, 0.45], [0.32, 0.22, 0.45], [-0.32, 0.22, -0.45], [0.32, 0.22, -0.45]].forEach(pos => {
                 const leg = new THREE.Mesh(legGeo, spotMat);
                 leg.position.set(...pos);
-                leg.castShadow = true;
                 group.add(leg);
             });
 
             group.userData = {
                 type: 'animal',
                 direction: Math.random() > 0.5 ? 1 : -1,
-                walkSpeed: 0.02 + Math.random() * 0.015
+                walkSpeed: 0.025 + Math.random() * 0.02
             };
-
             group.rotation.y = group.userData.direction === 1 ? Math.PI / 2 : -Math.PI / 2;
-            return group;
-        }
-
-        function createTrafficSign(type) {
-            const group = new THREE.Group();
-            const poleMat = new THREE.MeshStandardMaterial({ color: 0x777777, metalness: 0.5 });
-            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.5), poleMat);
-            pole.position.y = 1.25;
-            pole.castShadow = true;
-            group.add(pole);
-
-            const boardGeo = new THREE.BoxGeometry(0.9, 0.9, 0.05);
-            const tex = type === 'animal' ? signAnimalTexture : signPedestrianTexture;
-            const boardMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.4 });
-            const board = new THREE.Mesh(boardGeo, boardMat);
-            board.position.set(0, 2.1, 0);
-            board.rotation.z = Math.PI / 4; // Forma Diamante de advertencia
-            board.castShadow = true;
-            group.add(board);
-
-            group.userData = { type: 'scenery' };
             return group;
         }
 
         function createCone() {
             const group = new THREE.Group();
-            const cone = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.9, 16), new THREE.MeshStandardMaterial({ color: 0xff5500, roughness: 0.3 }));
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.9, 16), new THREE.MeshStandardMaterial({ color: 0xff5500 }));
             cone.position.y = 0.45;
-            cone.castShadow = true;
             group.add(cone);
-
-            const band = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, 0.2, 16), new THREE.MeshStandardMaterial({ color: 0xffffff }));
-            band.position.y = 0.45;
-            group.add(band);
             return group;
         }
 
         function createBlock() {
-            const block = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.8, 1.0), new THREE.MeshStandardMaterial({ color: 0x777788, roughness: 0.9 }));
+            const block = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.8, 1.0), new THREE.MeshStandardMaterial({ color: 0x777788 }));
             block.position.y = 0.4;
-            block.castShadow = true;
             return block;
         }
 
-        // --- ESTADO Y BIOMAS ALEATORIOS ---
+        // --- ESTADO DEL JUEGO ---
         let currentLane = 0;
         const lanePositions = [-3.6, 0, 3.6];
         let score = 0, stage = 1, lives = 3;
@@ -508,62 +658,64 @@
         const scenery = [];
         const collectibles = [];
 
-        // Paletas de Biomas para dinamismo de ruta
         const biomes = [
-            { terrain: 0x2e8b57, fog: 0xa0c4ff, name: "BOSQUE" },
-            { terrain: 0xd2b48c, fog: 0xffdfa9, name: "DESIERTO" },
-            { terrain: 0xe5e8e8, fog: 0xd6eaf8, name: "NIEVE" }
+            { terrain: 0x2e8b57, fog: 0x87ceeb },
+            { terrain: 0xd2b48c, fog: 0xffdfa9 },
+            { terrain: 0xe5e8e8, fog: 0xd6eaf8 }
         ];
         let currentBiomeIndex = 0;
+
+        function showWarningHUD(message) {
+            const banner = document.getElementById('warning-banner');
+            banner.innerText = message;
+            banner.style.display = 'block';
+            setTimeout(() => {
+                banner.style.display = 'none';
+            }, 2600);
+        }
 
         function updateDifficultyAndEnvironment() {
             let diffText = "FÁCIL";
             if (score < 100) {
-                stage = 1;
-                diffText = "FÁCIL";
-                baseSpeed = 0.45;
-                spawnInterval = 1.2;
+                stage = 1; diffText = "FÁCIL"; baseSpeed = 0.45; spawnInterval = 1.2;
             } else if (score < 250) {
-                stage = 2;
-                diffText = "MEDIO";
-                baseSpeed = 0.6;
-                spawnInterval = 0.95;
+                stage = 2; diffText = "MEDIO"; baseSpeed = 0.6; spawnInterval = 0.95;
             } else {
-                stage = 3;
-                diffText = "DIFÍCIL";
-                baseSpeed = 0.75;
-                spawnInterval = 0.7;
+                stage = 3; diffText = "DIFÍCIL"; baseSpeed = 0.75; spawnInterval = 0.7;
             }
 
-            // Cambiar aleatoriamente de bioma/paisaje cada 120 puntos
+            // Transición de Biomas
             const biomeIdx = Math.floor(score / 120) % biomes.length;
             if (biomeIdx !== currentBiomeIndex) {
                 currentBiomeIndex = biomeIdx;
                 terrainMat.color.setHex(biomes[currentBiomeIndex].terrain);
             }
 
-            // Transición Día/Noche
+            // Transición Día / Atardecer / Noche y Movimiento del Sol
             const targetColor = new THREE.Color();
-            let sunIntensity = 1.2;
-            let headlightIntensity = 0;
+            let sunY = 35, sunIntensity = 1.2, headlightIntensity = 0;
 
             if (score < 100) {
                 targetColor.copy(dayColor);
+                sunY = 35;
             } else if (score < 250) {
                 const t = (score - 100) / 150;
                 targetColor.lerpColors(dayColor, sunsetColor, t);
+                sunY = 35 - (30 * t);
                 sunIntensity = 1.2 - (0.6 * t);
                 headlightIntensity = t * 1.5;
             } else {
                 const t = Math.min(1, (score - 250) / 200);
                 targetColor.lerpColors(sunsetColor, nightColor, t);
-                sunIntensity = 0.15;
-                headlightIntensity = 2.5;
+                sunY = 5 - (15 * t);
+                sunIntensity = 0.1;
+                headlightIntensity = 2.8;
             }
 
             scene.background.lerp(targetColor, 0.05);
             scene.fog.color.lerp(targetColor, 0.05);
-            sun.intensity = THREE.MathUtils.lerp(sun.intensity, sunIntensity, 0.05);
+            sunMesh.position.y = THREE.MathUtils.lerp(sunMesh.position.y, sunY, 0.05);
+            sunLight.intensity = THREE.MathUtils.lerp(sunLight.intensity, sunIntensity, 0.05);
             ambientLight.intensity = THREE.MathUtils.lerp(ambientLight.intensity, sunIntensity * 0.5, 0.05);
             headlightL.intensity = THREE.MathUtils.lerp(headlightL.intensity, headlightIntensity, 0.05);
             headlightR.intensity = THREE.MathUtils.lerp(headlightR.intensity, headlightIntensity, 0.05);
@@ -572,15 +724,16 @@
             document.getElementById('diff-val').innerText = diffText;
         }
 
-        // --- CONTROLES ---
+        // --- CONTROLES Y EVENTOS ---
         window.addEventListener('keydown', (e) => {
+            initAudio();
             if (isGameOver) return;
             if ((e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') && currentLane > -1) currentLane--;
             if ((e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') && currentLane < 1) currentLane++;
             if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') currentSpeed = baseSpeed * 1.6;
             if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
                 currentSpeed = baseSpeed * 0.45;
-                playBrakeSound(0.4);
+                playBrakeSound();
             }
         });
 
@@ -591,8 +744,8 @@
         const bindBtn = (id, actionDown, actionUp) => {
             const btn = document.getElementById(id);
             if (!btn) return;
-            btn.addEventListener('touchstart', (e) => { e.preventDefault(); actionDown(); }, { passive: false });
-            btn.addEventListener('mousedown', actionDown);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); actionDown(); }, { passive: false });
+            btn.addEventListener('mousedown', () => { initAudio(); actionDown(); });
             if (actionUp) {
                 btn.addEventListener('touchend', (e) => { e.preventDefault(); actionUp(); }, { passive: false });
                 btn.addEventListener('mouseup', actionUp);
@@ -602,23 +755,9 @@
         bindBtn('btn-left', () => { if (!isGameOver && currentLane > -1) currentLane--; });
         bindBtn('btn-right', () => { if (!isGameOver && currentLane < 1) currentLane++; });
         bindBtn('btn-boost', () => { if (!isGameOver) currentSpeed = baseSpeed * 1.6; }, () => { currentSpeed = baseSpeed; });
-        bindBtn('btn-brake', () => { 
-            if (!isGameOver) { 
-                currentSpeed = baseSpeed * 0.45; 
-                playBrakeSound(0.4);
-            } 
-        }, () => { currentSpeed = baseSpeed; });
+        bindBtn('btn-brake', () => { if (!isGameOver) { currentSpeed = baseSpeed * 0.45; playBrakeSound(); } }, () => { currentSpeed = baseSpeed; });
 
-        // --- SPAWNING PROCEDURAL DE ENTORNO Y OBSTÁCULOS ---
-        function spawnScenery() {
-            // Generar árboles en los márgenes
-            const side = Math.random() > 0.5 ? 1 : -1;
-            const tree = createTree();
-            tree.position.set(side * (8 + Math.random() * 15), 0, -120);
-            scene.add(tree);
-            scenery.push(tree);
-        }
-
+        // --- GENERACIÓN PROCEDURAL ---
         function spawnObstacle() {
             if (isGameOver) return;
             const rand = Math.random();
@@ -626,25 +765,18 @@
 
             if (stage === 1) {
                 obs = rand < 0.6 ? createCone() : createBlock();
-            } else if (stage === 2) {
-                if (rand < 0.3) obs = createCone();
-                else if (rand < 0.5) obs = createBlock();
-                else if (rand < 0.75) {
-                    obs = createPedestrian();
-                    spawnSign('pedestrian');
-                } else {
-                    obs = createAnimal();
-                    spawnSign('animal');
-                }
             } else {
                 if (rand < 0.25) obs = createCone();
                 else if (rand < 0.45) obs = createBlock();
                 else if (rand < 0.7) {
                     obs = createPedestrian();
                     spawnSign('pedestrian');
+                    showWarningHUD('⚠️ ¡PRECAUCIÓN! PEATONES EN RUTA');
                 } else {
                     obs = createAnimal();
                     spawnSign('animal');
+                    showWarningHUD('⚠️ ¡PRECAUCIÓN! ANIMALES SUELTOS');
+                    playAnimalSound();
                 }
             }
 
@@ -652,14 +784,14 @@
             const isCrossing = (obs.userData && (obs.userData.type === 'pedestrian' || obs.userData.type === 'animal'));
             const posX = isCrossing ? (obs.userData.direction === 1 ? -6.5 : 6.5) : lanePositions[lane + 1];
             
-            obs.position.set(posX, 0, -80);
+            obs.position.set(posX, 0, -90);
             scene.add(obs);
             obstacles.push(obs);
         }
 
         function spawnSign(type) {
             const sign = createTrafficSign(type);
-            sign.position.set(-6.8, 0, -110); // Aparece más adelante para advertir
+            sign.position.set(-7.2, 0, -120);
             scene.add(sign);
             scenery.push(sign);
         }
@@ -667,26 +799,10 @@
         function spawnCollectible() {
             if (isGameOver) return;
             const group = new THREE.Group();
-
-            const diamondGeo = new THREE.OctahedronGeometry(0.55);
-            const diamondMat = new THREE.MeshStandardMaterial({ 
-                color: 0xffcc00, 
-                metalness: 0.8, 
-                roughness: 0.1,
-                transparent: true,
-                opacity: 0.85
-            });
-            const diamond = new THREE.Mesh(diamondGeo, diamondMat);
-            diamond.castShadow = true;
+            const diamond = new THREE.Mesh(new THREE.OctahedronGeometry(0.55), new THREE.MeshStandardMaterial({ color: 0xffcc00, metalness: 0.8 }));
             group.add(diamond);
 
-            const textCardGeo = new THREE.PlaneGeometry(0.7, 0.22);
-            const textCardMat = new THREE.MeshBasicMaterial({ 
-                map: extraGncTexture, 
-                transparent: true, 
-                side: THREE.DoubleSide 
-            });
-            const textCard = new THREE.Mesh(textCardGeo, textCardMat);
+            const textCard = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.22), new THREE.MeshBasicMaterial({ map: extraGncTexture, side: THREE.DoubleSide }));
             textCard.position.z = 0.01;
             group.add(textCard);
 
@@ -696,26 +812,35 @@
             collectibles.push(group);
         }
 
-        let spawnTimer = 0;
-        let sceneryTimer = 0;
+        let spawnTimer = 0, sceneryTimer = 0;
 
-        // --- BUCLE PRINCIPAL DE ANIMACIÓN ---
+        // --- BUCLE PRINCIPAL ---
         function animate() {
             requestAnimationFrame(animate);
 
             if (!isGameOver) {
                 updateDifficultyAndEnvironment();
+                updateEnginePitch(currentSpeed / baseSpeed);
 
                 const targetX = lanePositions[currentLane + 1];
                 playerGroup.position.x += (targetX - playerGroup.position.x) * 0.18;
 
-                // Spawning periódico
+                // Nubes Flotando
+                cloudsGroup.children.forEach(c => {
+                    c.position.z += currentSpeed * 0.2;
+                    if (c.position.z > 20) c.position.z = -320;
+                });
+
                 spawnTimer += 0.016;
                 sceneryTimer += 0.016;
 
                 if (sceneryTimer > 0.25) {
                     sceneryTimer = 0;
-                    spawnScenery();
+                    const side = Math.random() > 0.5 ? 1 : -1;
+                    const tree = createTree();
+                    tree.position.set(side * (8.5 + Math.random() * 15), 0, -120);
+                    scene.add(tree);
+                    scenery.push(tree);
                 }
 
                 if (spawnTimer > spawnInterval) {
@@ -724,7 +849,7 @@
                     if (Math.random() > 0.35) spawnCollectible();
                 }
 
-                // Mover Paisaje Lateral (Árboles y Señales)
+                // Mover Paisaje
                 for (let i = scenery.length - 1; i >= 0; i--) {
                     const obj = scenery[i];
                     obj.position.z += currentSpeed;
@@ -734,32 +859,28 @@
                     }
                 }
 
-                // Mover Obstáculos / Entidades
+                // Mover Obstáculos y Detección
                 for (let i = obstacles.length - 1; i >= 0; i--) {
                     const obs = obstacles[i];
                     obs.position.z += currentSpeed;
 
-                    // Animación y Cruce de Peatón
                     if (obs.userData && obs.userData.type === 'pedestrian') {
                         obs.position.x += obs.userData.walkSpeed * obs.userData.direction;
                         obs.userData.animTimer += 0.15;
                         const angle = Math.sin(obs.userData.animTimer) * 0.45;
                         obs.userData.leftLeg.rotation.x = angle;
                         obs.userData.rightLeg.rotation.x = -angle;
-                        obs.userData.leftArm.rotation.x = -angle;
-                        obs.userData.rightArm.rotation.x = angle;
                     }
 
-                    // Cruce de Animal
                     if (obs.userData && obs.userData.type === 'animal') {
                         obs.position.x += obs.userData.walkSpeed * obs.userData.direction;
                     }
 
-                    // DETECCIÓN DE COLISIÓN
+                    // Colisión
                     if (Math.abs(obs.position.z - playerGroup.position.z) < 1.1 &&
                         Math.abs(obs.position.x - playerGroup.position.x) < 0.85) {
                         
-                        // Perder todas las vidas al chocar peatón o animal suelto
+                        playCrashSound();
                         if (obs.userData && (obs.userData.type === 'pedestrian' || obs.userData.type === 'animal')) {
                             lives = 0;
                         } else {
@@ -780,7 +901,7 @@
                     }
                 }
 
-                // Mover Coleccionables EXTRA GNC
+                // Coleccionables
                 for (let i = collectibles.length - 1; i >= 0; i--) {
                     const item = collectibles[i];
                     item.position.z += currentSpeed;
@@ -824,13 +945,9 @@
             collectibles.length = 0;
             scenery.length = 0;
 
-            score = 0;
-            stage = 1;
-            lives = 3;
-            baseSpeed = 0.45;
-            currentSpeed = baseSpeed;
-            currentLane = 0;
-            isGameOver = false;
+            score = 0; stage = 1; lives = 3;
+            baseSpeed = 0.45; currentSpeed = baseSpeed;
+            currentLane = 0; isGameOver = false;
 
             playerGroup.position.set(0, 0, 0);
             updateUI();
