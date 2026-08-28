@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EXTRA GNC TURBO RACER</title>
-    <!-- Cargamos Three.js desde CDN para asegurar el renderizado 3D -->
+    <!-- Carga de Three.js para el renderizado 3D -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         * {
@@ -21,7 +21,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        /* CAPA DEL JUEGO (CANVAS THREE.JS) */
+        /* LIENZO DE THREE.JS */
         #game-container {
             width: 100vw;
             height: 100vh;
@@ -31,28 +31,29 @@
             z-index: 1;
         }
 
-        /* OVERLAY DE DATO DE SCORE / HUD EN PANTALLA */
+        /* INTERFAZ HUD DE PUNTAJE */
         #hud {
             position: absolute;
             top: 20px;
             left: 20px;
             z-index: 10;
             color: #00e5ff;
-            font-size: 20px;
+            font-size: 22px;
             font-weight: bold;
             font-family: monospace;
-            background: rgba(0,0,0,0.6);
-            padding: 10px 18px;
+            background: rgba(5, 8, 17, 0.75);
+            padding: 12px 24px;
             border-radius: 8px;
-            border: 1px solid #00e5ff;
+            border: 2px solid #00d2ff;
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
             display: none;
         }
 
-        /* OVERLAY DEL ESCÁNER DE CÓDIGO DE BARRAS */
+        /* OVERLAY DEL ESCÁNER */
         #scan-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(3, 4, 8, 0.95);
+            background: rgba(3, 4, 8, 0.96);
             z-index: 9999;
             display: flex;
             flex-direction: column;
@@ -117,41 +118,43 @@
 </head>
 <body>
 
-    <!-- OVERLAY ESCÁNER -->
+    <!-- PANTALLA DE INGRESO (ESCÁNER DE TICKET) -->
     <div id="scan-overlay">
         <div class="scan-card">
             <h2>🏎️ EXTRA GNC TURBO RACER</h2>
             <p>ESCANEE EL CÓDIGO DE SU TICKET PARA JUGAR</p>
+            
             <input type="text" id="barcode-input" placeholder="Aguardando lectura..." autofocus autocomplete="off">
+            
             <div id="scan-status">Aguardando código...</div>
         </div>
     </div>
 
-    <!-- HUD DEL JUEGO -->
+    <!-- PANTALLA DEL JUEGO -->
     <div id="hud">PUNTOS: <span id="score-val">0</span></div>
-
-    <!-- CONTENEDOR THREE.JS -->
     <div id="game-container"></div>
 
     <script>
+        // CONFIGURACIÓN DE CONEXIÓN A GOOGLE APPS SCRIPT
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUe4u1ViXI-xj-PKUbVxFaCz1e8AKmVa5Ckh2haFyqu-EZL5hf7O0TrSIalZNdrayv3w/exec";
         let activeTicketCode = "";
         let gameRunning = false;
         let score = 0;
 
+        // ELEMENTOS DOM
         const barcodeInput = document.getElementById('barcode-input');
         const scanStatus = document.getElementById('scan-status');
         const scanOverlay = document.getElementById('scan-overlay');
         const hud = document.getElementById('hud');
 
-        // MANTENER FOCO EN INPUT
+        // MANTENER FOCO CONSTANTE EN EL ESCÁNER
         document.addEventListener('click', () => {
             if (scanOverlay.style.display !== 'none') {
                 barcodeInput.focus();
             }
         });
 
-        // SANITIZACIÓN DEL LECTOR DE BARRAS
+        // LIMPIEZA Y SANITIZACIÓN DEL TECLADO DEL ESCÁNER DE BARRAS
         function limpiarCodigoLector(input) {
             return input.trim().toUpperCase()
                 .replace(/'/g, "-")
@@ -159,6 +162,7 @@
                 .replace(/_/g, "-");
         }
 
+        // CAPTURA DE EVENTO ENTER (ESCANEO)
         barcodeInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -170,6 +174,7 @@
             }
         });
 
+        // PETICIÓN HTTP A GOOGLE APPS SCRIPT
         function validarCodigoTicket(codigo) {
             scanStatus.style.color = "#ffcc00";
             scanStatus.innerText = "Verificando ticket...";
@@ -192,6 +197,7 @@
                         barcodeInput.value = "";
                         barcodeInput.disabled = false;
                         
+                        // INICIA EL JUEGO 3D
                         iniciarJuego();
                     }, 800);
                 } else {
@@ -215,97 +221,7 @@
             });
         }
 
-        // MOTOR DE JUEGO THREE.JS
-        let scene, camera, renderer, playerCar, road;
-
-        function initThreeJS() {
-            const container = document.getElementById('game-container');
-            
-            // Escena y Cámara
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0a0e1a);
-            scene.fog = new THREE.FogExp2(0x0a0e1a, 0.015);
-
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 3, 7);
-            camera.lookAt(0, 1, 0);
-
-            // Renderizador
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            container.appendChild(renderer.domElement);
-
-            // Luces
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-
-            const dirLight = new THREE.DirectionalLight(0x00e5ff, 1);
-            dirLight.position.set(5, 10, 7);
-            scene.add(dirLight);
-
-            // Pista de carreras
-            const roadGeo = new THREE.PlaneGeometry(12, 400);
-            const roadMat = new THREE.MeshBasicMaterial({ color: 0x1a202c, side: THREE.DoubleSide });
-            road = new THREE.Mesh(roadGeo, roadMat);
-            road.rotation.x = -Math.PI / 2;
-            road.position.z = -150;
-            scene.add(road);
-
-            // Auto del jugador
-            const carGeo = new THREE.BoxGeometry(1.6, 0.8, 3.2);
-            const carMat = new THREE.MeshStandardMaterial({ color: 0x00d2ff, roughness: 0.2, metalness: 0.8 });
-            playerCar = new THREE.Mesh(carGeo, carMat);
-            playerCar.position.set(0, 0.4, 3);
-            scene.add(playerCar);
-
-            // Controles teclado (Izquierda / Derecha)
-            window.addEventListener('keydown', (e) => {
-                if (!gameRunning) return;
-                if (e.key === 'ArrowLeft' || e.key === 'a') {
-                    if (playerCar.position.x > -3.5) playerCar.position.x -= 0.5;
-                }
-                if (e.key === 'ArrowRight' || e.key === 'd') {
-                    if (playerCar.position.x < 3.5) playerCar.position.x += 0.5;
-                }
-            });
-
-            // Reajuste de pantalla
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-        }
-
-        function iniciarJuego() {
-            gameRunning = true;
-            score = 0;
-            document.getElementById('score-val').innerText = score;
-            animate();
-        }
-
-        function animate() {
-            if (!gameRunning) return;
-
-            requestAnimationFrame(animate);
-
-            // Efecto de movimiento continuo de la pista y aceleración
-            score += 1;
-            document.getElementById('score-val').innerText = score;
-
-            // Renderizar la escena 3D
-            renderer.render(scene, camera);
-        }
-
-        function finalizarJuego() {
-            gameRunning = false;
-            guardarResultadoPartida(score);
-            alert("¡Partida finalizada! Puntaje guardado: " + score);
-            hud.style.display = 'none';
-            scanOverlay.style.display = 'flex';
-        }
-
+        // REGISTRO DE PUNTAJE EN LA PESTAÑA Partidas_Registradas
         function guardarResultadoPartida(puntos) {
             if (!activeTicketCode) return;
 
@@ -314,11 +230,164 @@
                 redirect: "follow"
             })
             .then(res => res.json())
-            .then(data => console.log("Resultado guardado:", data))
-            .catch(err => console.error("Error al guardar:", err));
+            .then(data => console.log("Partida guardada:", data))
+            .catch(err => console.error("Error al guardar partida:", err));
         }
 
-        // Inicializar la escena 3D al cargar la página
+        // ==========================================
+        // MOTOR DE JUEGO 3D (THREE.JS COMPLETO)
+        // ==========================================
+        let scene, camera, renderer, playerCar, road, lines = [];
+
+        function initThreeJS() {
+            const container = document.getElementById('game-container');
+            
+            // 1. Escena, Cámara y Niebla
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050811);
+            scene.fog = new THREE.FogExp2(0x050811, 0.012);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 3.2, 7);
+            camera.lookAt(0, 1.2, 0);
+
+            // 2. Renderizador
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // 3. Luces
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0x00e5ff, 1.2);
+            dirLight.position.set(5, 12, 8);
+            scene.add(dirLight);
+
+            // 4. Pista de Carreras
+            const roadGeo = new THREE.PlaneGeometry(10, 400);
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x111625, roughness: 0.6 });
+            road = new THREE.Mesh(roadGeo, roadMat);
+            road.rotation.x = -Math.PI / 2;
+            road.position.z = -150;
+            scene.add(road);
+
+            // Líneas delimitadoras de la pista
+            for (let i = 0; i < 20; i++) {
+                const lineGeo = new THREE.PlaneGeometry(0.3, 4);
+                const lineMat = new THREE.MeshBasicMaterial({ color: 0x00d2ff });
+                const line = new THREE.Mesh(lineGeo, lineMat);
+                line.rotation.x = -Math.PI / 2;
+                line.position.set(0, 0.01, -i * 15);
+                scene.add(line);
+                lines.push(line);
+            }
+
+            // 5. Creación del Auto (Carrocería + Cabina + Ruedas)
+            const carGroup = new THREE.Group();
+
+            // Chasis
+            const bodyGeo = new THREE.BoxGeometry(1.8, 0.6, 3.4);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00d2ff, roughness: 0.2, metalness: 0.8 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.5;
+            carGroup.add(body);
+
+            // Cabina
+            const cabinGeo = new THREE.BoxGeometry(1.3, 0.5, 1.6);
+            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x09101d, roughness: 0.1, metalness: 0.9 });
+            const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+            cabin.position.set(0, 0.9, -0.2);
+            carGroup.add(cabin);
+
+            // Ruedas
+            const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.3, 16);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+            
+            const positions = [
+                [-1, 0.35, 1.1],
+                [1, 0.35, 1.1],
+                [-1, 0.35, -1.1],
+                [1, 0.35, -1.1]
+            ];
+
+            positions.forEach(pos => {
+                const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.position.set(...pos);
+                carGroup.add(wheel);
+            });
+
+            playerCar = carGroup;
+            playerCar.position.set(0, 0, 2);
+            scene.add(playerCar);
+
+            // Controles teclado (Flechas o A/D)
+            window.addEventListener('keydown', (e) => {
+                if (!gameRunning) return;
+                if ((e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') && playerCar.position.x > -3.2) {
+                    playerCar.position.x -= 0.8;
+                }
+                if ((e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') && playerCar.position.x < 3.2) {
+                    playerCar.position.x += 0.8;
+                }
+            });
+
+            // Ajuste Responsivo del Navegador
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Primer renderizado de la escena estática
+            renderer.render(scene, camera);
+        }
+
+        // CONTROL DE FLUJO DEL JUEGO
+        function iniciarJuego() {
+            gameRunning = true;
+            score = 0;
+            document.getElementById('score-val').innerText = score;
+            animate();
+        }
+
+        // BUCLE PRINCIPAL DE ANIMACIÓN
+        function animate() {
+            if (!gameRunning) return;
+
+            requestAnimationFrame(animate);
+
+            // Aumento de Puntaje
+            score += 1;
+            document.getElementById('score-val').innerText = score;
+
+            // Animación de la Pista (Efecto de velocidad)
+            lines.forEach(line => {
+                line.position.z += 0.8;
+                if (line.position.z > 5) {
+                    line.position.z = -255;
+                }
+            });
+
+            // Renderizado 3D continuo
+            renderer.render(scene, camera);
+        }
+
+        // FINALIZACIÓN DE PARTIDA Y PERSISTENCIA
+        function finalizarPartida() {
+            gameRunning = false;
+            guardarResultadoPartida(score);
+            
+            alert(`Partida finalizada. Puntaje total registrado: ${score}`);
+            
+            hud.style.display = 'none';
+            scanOverlay.style.display = 'flex';
+            barcodeInput.focus();
+        }
+
+        // INICIALIZAR THREE.JS AL CARGAR EL DOM
         window.onload = initThreeJS;
     </script>
 </body>
