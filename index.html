@@ -5,20 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EXTRA GNC TURBO RACER</title>
     <style>
-        body {
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            background-color: #050811;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden;
         }
 
-        /* OVERLAY DE AUTENTICACIÓN / LECTOR BARCODE */
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050811;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* CANVAS DEL JUEGO */
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* OVERLAY DE VALIDACIÓN (LECTOR DE CÓDIGO DE BARRAS) */
         #scan-overlay {
-            position: absolute;
+            position: fixed;
             inset: 0;
             background: rgba(3, 4, 8, 0.95);
-            z-index: 300;
+            z-index: 9999;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -29,24 +42,25 @@
         .scan-card {
             background: #0d111d;
             border: 2px solid #00d2ff;
-            box-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
+            box-shadow: 0 0 25px rgba(0, 210, 255, 0.35);
             border-radius: 12px;
-            padding: 30px 40px;
+            padding: 35px 45px;
             text-align: center;
-            max-width: 400px;
+            max-width: 450px;
             width: 90%;
         }
 
-        h2 {
+        .scan-card h2 {
             color: #00d2ff;
-            margin-top: 0;
+            font-size: 24px;
             margin-bottom: 10px;
             letter-spacing: 1px;
+            text-transform: uppercase;
         }
 
-        p {
+        .scan-card p {
             color: #a0aec0;
-            font-size: 15px;
+            font-size: 14px;
             margin-bottom: 25px;
         }
 
@@ -59,14 +73,15 @@
             background: #161f30;
             color: #ffffff;
             border-radius: 8px;
-            width: 80%;
+            width: 100%;
             outline: none;
             letter-spacing: 2px;
             transition: all 0.3s ease;
         }
 
         #barcode-input:focus {
-            box-shadow: 0 0 10px rgba(0, 210, 255, 0.7);
+            box-shadow: 0 0 12px rgba(0, 210, 255, 0.8);
+            border-color: #00e5ff;
         }
 
         #scan-status {
@@ -92,9 +107,11 @@
         </div>
     </div>
 
-    <!-- AQUÍ VA EL CANVAS Y CONTENIDO DE TU JUEGO THREE.JS -->
+    <!-- CONTENEDOR DEL JUEGO -->
+    <canvas id="game-canvas"></canvas>
 
     <script>
+        // CONFIGURACIÓN DE CONEXIÓN CON GOOGLE APPS SCRIPT
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUe4u1ViXI-xj-PKUbVxFaCz1e8AKmVa5Ckh2haFyqu-EZL5hf7O0TrSIalZNdrayv3w/exec";
         let activeTicketCode = "";
 
@@ -102,22 +119,22 @@
         const scanStatus = document.getElementById('scan-status');
         const scanOverlay = document.getElementById('scan-overlay');
 
-        // Mantener el foco automático en la caja de texto para la pistola
+        // MANTENER SIEMPRE EL FOCO EN EL INPUT PARA LA PISTOLA
         document.addEventListener('click', () => {
             if (scanOverlay.style.display !== 'none') {
                 barcodeInput.focus();
             }
         });
 
-        // SANITIZACIÓN DE TECLADO: Corrige mapeo de pistola en español/latino
+        // SANITIZACIÓN DE MAPEO DE TECLADO PARA LECTORAS EN ESPAÑOL
         function limpiarCodigoLector(input) {
             return input.trim().toUpperCase()
-                .replace(/'/g, "-")   // Reemplaza comilla simple por guion medio
-                .replace(/\?/g, "-")  // Reemplaza signo de interrogación por guion medio
-                .replace(/_/g, "-");  // Normaliza guiones bajos
+                .replace(/'/g, "-")   // Convierte comillas simples en guiones
+                .replace(/\?/g, "-")  // Convierte signos de pregunta en guiones
+                .replace(/_/g, "-");  // Convierte guiones bajos en guiones
         }
 
-        // CAPTURA DE ESCANEO
+        // CAPTURA DEL ENTER ENVIADO POR LA PISTOLA LECTORA
         barcodeInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -125,13 +142,13 @@
                 const codigoLimpio = limpiarCodigoLector(codigoRaw);
                 
                 if (codigoLimpio !== "") {
-                    barcodeInput.value = codigoLimpio; // Muestra la corrección visual en pantalla
+                    barcodeInput.value = codigoLimpio; // Muestra la corrección en pantalla
                     validarCodigoTicket(codigoLimpio);
                 }
             }
         });
 
-        // CONSULTA DE VALIDACIÓN A GOOGLE APPS SCRIPT
+        // VALIDACIÓN CONTRA GOOGLE SHEETS
         function validarCodigoTicket(codigo) {
             scanStatus.style.color = "#ffcc00";
             scanStatus.innerText = "Verificando ticket...";
@@ -149,7 +166,9 @@
                             scanOverlay.style.display = 'none';
                             barcodeInput.value = "";
                             barcodeInput.disabled = false;
-                            // AQUI INICIA TU LÓGICA/BUCLE DEL JUEGO
+                            
+                            // INICIA EL JUEGO TRAS VALIDAR
+                            iniciarJuego();
                         }, 1000);
                     } else {
                         scanStatus.style.color = "#ff3355";
@@ -163,7 +182,7 @@
                 })
                 .catch(err => {
                     scanStatus.style.color = "#ff3355";
-                    scanStatus.innerText = "Error de conexión con Google Sheets";
+                    scanStatus.innerText = "Error de conexión con la base de datos";
                     setTimeout(() => {
                         barcodeInput.value = "";
                         barcodeInput.disabled = false;
@@ -172,16 +191,22 @@
                 });
         }
 
-        // LLAMAR A ESTA FUNCIÓN AL FINALIZAR LA CARRERA
+        // FUNCIÓN QUE ARRANCA EL MOTOR DEL JUEGO
+        function iniciarJuego() {
+            console.log("Juego iniciado con el código:", activeTicketCode);
+            // AQUÍ INICIAS TU BUCLE / RENDER DE THREE.JS O CANVAS
+        }
+
+        // LLAMAR A ESTA FUNCIÓN AL PERDER O TERMINAR LA CARRERA
         function guardarResultadoPartida(puntos) {
             if (!activeTicketCode) return;
 
             fetch(`${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${puntos}`)
                 .then(res => res.json())
                 .then(data => {
-                    console.log("Partida registrada y código consumido:", data);
+                    console.log("Resultado guardado exitosamente:", data);
                 })
-                .catch(err => console.error("Error al registrar resultado:", err));
+                .catch(err => console.error("Error al registrar puntaje:", err));
         }
     </script>
 </body>
