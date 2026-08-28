@@ -1,188 +1,65 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EXTRA GNC TURBO RACER</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #050811;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden;
+function doGet(e) {
+  const action = e.parameter.action;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // 1. VALIDAR CÓDIGO Y MARCAR COMO USADO INMEDIATAMENTE AL ESCANEAR
+  if (action === "validarCodigo") {
+    const codigo = e.parameter.codigo;
+    if (!codigo) {
+      return respuestaJSON({ status: "ERROR", message: "Código no proporcionado" });
+    }
+
+    const sheetCodigos = ss.getSheetByName("Codigos_Emitidos");
+    const dataCodigos = sheetCodigos.getDataRange().getValues();
+
+    for (let i = 1; i < dataCodigos.length; i++) {
+      const codigoFila = dataCodigos[i][0].toString().trim().toUpperCase();
+      const estadoFila = dataCodigos[i][2].toString().trim().toUpperCase();
+
+      if (codigoFila === codigo.trim().toUpperCase()) {
+        if (estadoFila === "DISPONIBLE") {
+          // Marca automáticamente como USADO en la fila y registra la fecha/hora
+          sheetCodigos.getRange(i + 1, 3).setValue("USADO");
+          sheetCodigos.getRange(i + 1, 4).setValue(new Date());
+
+          return respuestaJSON({ status: "OK", message: "Código válido y registrado" });
+        } else {
+          return respuestaJSON({ status: "ERROR", message: "Este ticket ya fue utilizado" });
         }
+      }
+    }
+    return respuestaJSON({ status: "ERROR", message: "Código no encontrado" });
+  }
 
-        /* OVERLAY DE AUTENTICACIÓN / LECTOR BARCODE */
-        #scan-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(3, 4, 8, 0.95);
-            z-index: 300;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-        }
+  // 2. REGISTRAR EL PUNTAJE FINAL DE LA PARTIDA EN PARTIDAS_REGISTRADAS
+  if (action === "registrarPartida") {
+    const codigo = e.parameter.codigo;
+    const puntos = e.parameter.puntos;
+    const sheetPartidas = ss.getSheetByName("Partidas_Registradas");
 
-        .scan-card {
-            background: #0d111d;
-            border: 2px solid #00d2ff;
-            box-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
-            border-radius: 12px;
-            padding: 30px 40px;
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-        }
+    const idPartida = "PART-" + new Date().getTime();
+    sheetPartidas.appendRow([idPartida, codigo, puntos, new Date()]);
 
-        h2 {
-            color: #00d2ff;
-            margin-top: 0;
-            margin-bottom: 10px;
-            letter-spacing: 1px;
-        }
+    return respuestaJSON({ status: "OK", idPartida: idPartida });
+  }
 
-        p {
-            color: #a0aec0;
-            font-size: 15px;
-            margin-bottom: 25px;
-        }
+  return respuestaJSON({ status: "ERROR", message: "Acción no válida" });
+}
 
-        #barcode-input {
-            padding: 14px 20px;
-            font-size: 22px;
-            font-weight: bold;
-            text-align: center;
-            border: 2px solid #00d2ff;
-            background: #161f30;
-            color: #ffffff;
-            border-radius: 8px;
-            width: 80%;
-            outline: none;
-            letter-spacing: 2px;
-            transition: all 0.3s ease;
-        }
+// Función auxiliar para retornar respuestas en formato JSON
+function respuestaJSON(objeto) {
+  return ContentService.createTextOutput(JSON.stringify(objeto))
+    .setMimeType(ContentService.MimeType.JSON);
+}
 
-        #barcode-input:focus {
-            box-shadow: 0 0 10px rgba(0, 210, 255, 0.7);
-        }
-
-        #scan-status {
-            margin-top: 20px;
-            font-weight: bold;
-            font-size: 15px;
-            color: #ffcc00;
-            min-height: 22px;
-        }
-    </style>
-</head>
-<body>
-
-    <!-- OVERLAY DE INGRESO POR ESCÁNER -->
-    <div id="scan-overlay">
-        <div class="scan-card">
-            <h2>🏎️ EXTRA GNC TURBO RACER</h2>
-            <p>ESCANEE EL CÓDIGO DE SU TICKET PARA JUGAR</p>
-            
-            <input type="text" id="barcode-input" placeholder="Aguardando lectura..." autofocus autocomplete="off">
-            
-            <div id="scan-status">Aguardando código...</div>
-        </div>
-    </div>
-
-    <!-- AQUÍ VA EL CANVAS Y CONTENIDO DE TU JUEGO THREE.JS -->
-
-    <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUe4u1ViXI-xj-PKUbVxFaCz1e8AKmVa5Ckh2haFyqu-EZL5hf7O0TrSIalZNdrayv3w/exec";
-        let activeTicketCode = "";
-
-        const barcodeInput = document.getElementById('barcode-input');
-        const scanStatus = document.getElementById('scan-status');
-        const scanOverlay = document.getElementById('scan-overlay');
-
-        // Mantener el foco automático en la caja de texto para la pistola
-        document.addEventListener('click', () => {
-            if (scanOverlay.style.display !== 'none') {
-                barcodeInput.focus();
-            }
-        });
-
-        // SANITIZACIÓN DE TECLADO: Corrige mapeo de pistola en español/latino
-        function limpiarCodigoLector(input) {
-            return input.trim().toUpperCase()
-                .replace(/'/g, "-")   // Reemplaza comilla simple por guion medio
-                .replace(/\?/g, "-")  // Reemplaza signo de interrogación por guion medio
-                .replace(/_/g, "-");  // Normaliza guiones bajos
-        }
-
-        // CAPTURA DE ESCANEO
-        barcodeInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const codigoRaw = barcodeInput.value;
-                const codigoLimpio = limpiarCodigoLector(codigoRaw);
-                
-                if (codigoLimpio !== "") {
-                    barcodeInput.value = codigoLimpio; // Muestra la corrección visual en pantalla
-                    validarCodigoTicket(codigoLimpio);
-                }
-            }
-        });
-
-        // CONSULTA DE VALIDACIÓN A GOOGLE APPS SCRIPT
-        function validarCodigoTicket(codigo) {
-            scanStatus.style.color = "#ffcc00";
-            scanStatus.innerText = "Verificando ticket...";
-            barcodeInput.disabled = true;
-
-            fetch(`${WEB_APP_URL}?action=validarCodigo&codigo=${encodeURIComponent(codigo)}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === "OK") {
-                        scanStatus.style.color = "#00ff88";
-                        scanStatus.innerText = "¡CÓDIGO VÁLIDO! INICIANDO...";
-                        activeTicketCode = codigo;
-
-                        setTimeout(() => {
-                            scanOverlay.style.display = 'none';
-                            barcodeInput.value = "";
-                            barcodeInput.disabled = false;
-                            // AQUI INICIA TU LÓGICA/BUCLE DEL JUEGO
-                        }, 1000);
-                    } else {
-                        scanStatus.style.color = "#ff3355";
-                        scanStatus.innerText = data.message || "Código inválido o ya usado";
-                        setTimeout(() => {
-                            barcodeInput.value = "";
-                            barcodeInput.disabled = false;
-                            barcodeInput.focus();
-                        }, 1500);
-                    }
-                })
-                .catch(err => {
-                    scanStatus.style.color = "#ff3355";
-                    scanStatus.innerText = "Error de conexión con Google Sheets";
-                    setTimeout(() => {
-                        barcodeInput.value = "";
-                        barcodeInput.disabled = false;
-                        barcodeInput.focus();
-                    }, 1500);
-                });
-        }
-
-        // LLAMAR A ESTA FUNCIÓN AL FINALIZAR LA CARRERA
-        function guardarResultadoPartida(puntos) {
-            if (!activeTicketCode) return;
-
-            fetch(`${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${puntos}`)
-                .then(res => res.json())
-                .then(data => {
-                    console.log("Partida registrada y código consumido:", data);
-                })
-                .catch(err => console.error("Error al registrar resultado:", err));
-        }
-    </script>
-</body>
-</html>
+// GENERADOR MASIVO DE CÓDIGOS DE BARRAS
+function generarCodigosMasivos() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Codigos_Emitidos");
+  
+  for (let i = 0; i < 50; i++) {
+    const codigoRandom = "SEL-" + Math.random().toString(36).substring(2, 7).toUpperCase();
+    const formulaBarcode = '=IMAGE("https://barcode.tec-it.com/barcode.ashx?data=' + codigoRandom + '&code=Code128")';
+    sheet.appendRow([codigoRandom, formulaBarcode, "DISPONIBLE", ""]);
+  }
+}
