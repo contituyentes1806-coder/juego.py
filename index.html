@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EXTRA GNC TURBO RACER</title>
+    <!-- Cargamos Three.js desde CDN para asegurar el renderizado 3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -19,11 +21,38 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
+        /* CAPA DEL JUEGO (CANVAS THREE.JS) */
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* OVERLAY DE DATO DE SCORE / HUD EN PANTALLA */
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            color: #00e5ff;
+            font-size: 20px;
+            font-weight: bold;
+            font-family: monospace;
+            background: rgba(0,0,0,0.6);
+            padding: 10px 18px;
+            border-radius: 8px;
+            border: 1px solid #00e5ff;
+            display: none;
+        }
+
         /* OVERLAY DEL ESCÁNER DE CÓDIGO DE BARRAS */
         #scan-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(3, 4, 8, 0.96);
+            background: rgba(3, 4, 8, 0.95);
             z-index: 9999;
             display: flex;
             flex-direction: column;
@@ -88,53 +117,52 @@
 </head>
 <body>
 
-    <!-- OVERLAY DE INGRESO POR ESCÁNER -->
+    <!-- OVERLAY ESCÁNER -->
     <div id="scan-overlay">
         <div class="scan-card">
             <h2>🏎️ EXTRA GNC TURBO RACER</h2>
             <p>ESCANEE EL CÓDIGO DE SU TICKET PARA JUGAR</p>
-            
             <input type="text" id="barcode-input" placeholder="Aguardando lectura..." autofocus autocomplete="off">
-            
             <div id="scan-status">Aguardando código...</div>
         </div>
     </div>
 
-    <!-- CONTENEDOR DEL JUEGO -->
-    <div id="game-container" style="width: 100vw; height: 100vh;">
-        <!-- AQUÍ SE RENDERIZA TU JUEGO THREE.JS / CANVAS -->
-    </div>
+    <!-- HUD DEL JUEGO -->
+    <div id="hud">PUNTOS: <span id="score-val">0</span></div>
+
+    <!-- CONTENEDOR THREE.JS -->
+    <div id="game-container"></div>
 
     <script>
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUe4u1ViXI-xj-PKUbVxFaCz1e8AKmVa5Ckh2haFyqu-EZL5hf7O0TrSIalZNdrayv3w/exec";
         let activeTicketCode = "";
+        let gameRunning = false;
+        let score = 0;
 
         const barcodeInput = document.getElementById('barcode-input');
         const scanStatus = document.getElementById('scan-status');
         const scanOverlay = document.getElementById('scan-overlay');
+        const hud = document.getElementById('hud');
 
-        // MANTENER SIEMPRE EL FOCO EN EL INPUT DE LECTURA
+        // MANTENER FOCO EN INPUT
         document.addEventListener('click', () => {
             if (scanOverlay.style.display !== 'none') {
                 barcodeInput.focus();
             }
         });
 
-        // SANITIZACIÓN AUTOMÁTICA DEL MAPEO DE TECLADO EN LA PISTOLA
+        // SANITIZACIÓN DEL LECTOR DE BARRAS
         function limpiarCodigoLector(input) {
             return input.trim().toUpperCase()
-                .replace(/'/g, "-")   // Convierte comilla simple a guion
-                .replace(/\?/g, "-")  // Convierte signo ? a guion
-                .replace(/_/g, "-");  // Normaliza guion bajo
+                .replace(/'/g, "-")
+                .replace(/\?/g, "-")
+                .replace(/_/g, "-");
         }
 
-        // CAPTURA DE LECTURA DE LA PISTOLA (TECLA ENTER)
         barcodeInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                const codigoRaw = barcodeInput.value;
-                const codigoLimpio = limpiarCodigoLector(codigoRaw);
-                
+                const codigoLimpio = limpiarCodigoLector(barcodeInput.value);
                 if (codigoLimpio !== "") {
                     barcodeInput.value = codigoLimpio;
                     validarCodigoTicket(codigoLimpio);
@@ -142,7 +170,6 @@
             }
         });
 
-        // CONSULTA A GOOGLE SHEETS
         function validarCodigoTicket(codigo) {
             scanStatus.style.color = "#ffcc00";
             scanStatus.innerText = "Verificando ticket...";
@@ -161,13 +188,12 @@
 
                     setTimeout(() => {
                         scanOverlay.style.display = 'none';
+                        hud.style.display = 'block';
                         barcodeInput.value = "";
                         barcodeInput.disabled = false;
                         
-                        if (typeof iniciarJuego === "function") {
-                            iniciarJuego();
-                        }
-                    }, 1000);
+                        iniciarJuego();
+                    }, 800);
                 } else {
                     scanStatus.style.color = "#ff3355";
                     scanStatus.innerText = data.message || "Código inválido o ya usado";
@@ -179,7 +205,6 @@
                 }
             })
             .catch(err => {
-                console.error("Error en fetch:", err);
                 scanStatus.style.color = "#ff3355";
                 scanStatus.innerText = "Error de conexión con la base de datos";
                 setTimeout(() => {
@@ -190,7 +215,97 @@
             });
         }
 
-        // GUARDADO DE PUNTAJE AL FINALIZAR LA PARTIDA
+        // MOTOR DE JUEGO THREE.JS
+        let scene, camera, renderer, playerCar, road;
+
+        function initThreeJS() {
+            const container = document.getElementById('game-container');
+            
+            // Escena y Cámara
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0e1a);
+            scene.fog = new THREE.FogExp2(0x0a0e1a, 0.015);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 3, 7);
+            camera.lookAt(0, 1, 0);
+
+            // Renderizador
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // Luces
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0x00e5ff, 1);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+
+            // Pista de carreras
+            const roadGeo = new THREE.PlaneGeometry(12, 400);
+            const roadMat = new THREE.MeshBasicMaterial({ color: 0x1a202c, side: THREE.DoubleSide });
+            road = new THREE.Mesh(roadGeo, roadMat);
+            road.rotation.x = -Math.PI / 2;
+            road.position.z = -150;
+            scene.add(road);
+
+            // Auto del jugador
+            const carGeo = new THREE.BoxGeometry(1.6, 0.8, 3.2);
+            const carMat = new THREE.MeshStandardMaterial({ color: 0x00d2ff, roughness: 0.2, metalness: 0.8 });
+            playerCar = new THREE.Mesh(carGeo, carMat);
+            playerCar.position.set(0, 0.4, 3);
+            scene.add(playerCar);
+
+            // Controles teclado (Izquierda / Derecha)
+            window.addEventListener('keydown', (e) => {
+                if (!gameRunning) return;
+                if (e.key === 'ArrowLeft' || e.key === 'a') {
+                    if (playerCar.position.x > -3.5) playerCar.position.x -= 0.5;
+                }
+                if (e.key === 'ArrowRight' || e.key === 'd') {
+                    if (playerCar.position.x < 3.5) playerCar.position.x += 0.5;
+                }
+            });
+
+            // Reajuste de pantalla
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        function iniciarJuego() {
+            gameRunning = true;
+            score = 0;
+            document.getElementById('score-val').innerText = score;
+            animate();
+        }
+
+        function animate() {
+            if (!gameRunning) return;
+
+            requestAnimationFrame(animate);
+
+            // Efecto de movimiento continuo de la pista y aceleración
+            score += 1;
+            document.getElementById('score-val').innerText = score;
+
+            // Renderizar la escena 3D
+            renderer.render(scene, camera);
+        }
+
+        function finalizarJuego() {
+            gameRunning = false;
+            guardarResultadoPartida(score);
+            alert("¡Partida finalizada! Puntaje guardado: " + score);
+            hud.style.display = 'none';
+            scanOverlay.style.display = 'flex';
+        }
+
         function guardarResultadoPartida(puntos) {
             if (!activeTicketCode) return;
 
@@ -199,11 +314,12 @@
                 redirect: "follow"
             })
             .then(res => res.json())
-            .then(data => {
-                console.log("Resultado guardado correctamente:", data);
-            })
-            .catch(err => console.error("Error al registrar puntaje:", err));
+            .then(data => console.log("Resultado guardado:", data))
+            .catch(err => console.error("Error al guardar:", err));
         }
+
+        // Inicializar la escena 3D al cargar la página
+        window.onload = initThreeJS;
     </script>
 </body>
 </html>
