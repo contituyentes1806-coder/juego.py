@@ -19,18 +19,11 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        /* CANVAS DEL JUEGO */
-        #game-canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        /* OVERLAY DE VALIDACIÓN (LECTOR DE CÓDIGO DE BARRAS) */
+        /* OVERLAY DEL ESCÁNER DE CÓDIGO DE BARRAS */
         #scan-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(3, 4, 8, 0.95);
+            background: rgba(3, 4, 8, 0.96);
             z-index: 9999;
             display: flex;
             flex-direction: column;
@@ -95,7 +88,7 @@
 </head>
 <body>
 
-    <!-- OVERLAY DE INGRESO POR ESCÁNER -->
+    <!-- 1. PANTALLA DE INGRESO CON ESCÁNER -->
     <div id="scan-overlay">
         <div class="scan-card">
             <h2>🏎️ EXTRA GNC TURBO RACER</h2>
@@ -107,11 +100,12 @@
         </div>
     </div>
 
-    <!-- CONTENEDOR DEL JUEGO -->
-    <canvas id="game-canvas"></canvas>
+    <!-- 2. AQUÍ VA EL CONTENIDO Y CANVAS DE TU JUEGO EXISTENTE -->
+    <div id="game-container" style="width: 100vw; height: 100vh;">
+        <!-- TU CANVAS O LÓGICA RENDERIZADORA DE CARRERA -->
+    </div>
 
     <script>
-        // CONFIGURACIÓN DE CONEXIÓN CON GOOGLE APPS SCRIPT
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUe4u1ViXI-xj-PKUbVxFaCz1e8AKmVa5Ckh2haFyqu-EZL5hf7O0TrSIalZNdrayv3w/exec";
         let activeTicketCode = "";
 
@@ -119,22 +113,22 @@
         const scanStatus = document.getElementById('scan-status');
         const scanOverlay = document.getElementById('scan-overlay');
 
-        // MANTENER SIEMPRE EL FOCO EN EL INPUT PARA LA PISTOLA
+        // MANTENER SIEMPRE EL FOCO EN EL INPUT DE LECTURA
         document.addEventListener('click', () => {
             if (scanOverlay.style.display !== 'none') {
                 barcodeInput.focus();
             }
         });
 
-        // SANITIZACIÓN DE MAPEO DE TECLADO PARA LECTORAS EN ESPAÑOL
+        // SANITIZACIÓN AUTOMÁTICA DEL MAPEO DE TECLADO EN LA PISTOLA
         function limpiarCodigoLector(input) {
             return input.trim().toUpperCase()
-                .replace(/'/g, "-")   // Convierte comillas simples en guiones
-                .replace(/\?/g, "-")  // Convierte signos de pregunta en guiones
-                .replace(/_/g, "-");  // Convierte guiones bajos en guiones
+                .replace(/'/g, "-")   // Convierte comilla simple a guion
+                .replace(/\?/g, "-")  // Convierte signo ? a guion
+                .replace(/_/g, "-");  // Normaliza guion bajo
         }
 
-        // CAPTURA DEL ENTER ENVIADO POR LA PISTOLA LECTORA
+        // CAPTURA DE LECTURA DE LA PISTOLA (TECLA ENTER)
         barcodeInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -142,13 +136,13 @@
                 const codigoLimpio = limpiarCodigoLector(codigoRaw);
                 
                 if (codigoLimpio !== "") {
-                    barcodeInput.value = codigoLimpio; // Muestra la corrección en pantalla
+                    barcodeInput.value = codigoLimpio;
                     validarCodigoTicket(codigoLimpio);
                 }
             }
         });
 
-        // VALIDACIÓN CONTRA GOOGLE SHEETS
+        // CONSULTA A GOOGLE SHEETS
         function validarCodigoTicket(codigo) {
             scanStatus.style.color = "#ffcc00";
             scanStatus.innerText = "Verificando ticket...";
@@ -163,12 +157,15 @@
                         activeTicketCode = codigo;
 
                         setTimeout(() => {
+                            // OCULTA EL OVERLAY PARA MOSTRAR EL JUEGO
                             scanOverlay.style.display = 'none';
                             barcodeInput.value = "";
                             barcodeInput.disabled = false;
                             
-                            // INICIA EL JUEGO TRAS VALIDAR
-                            iniciarJuego();
+                            // LLAMADA A LA FUNCIÓN QUE INICIA EL JUEGO
+                            if (typeof iniciarJuego === "function") {
+                                iniciarJuego();
+                            }
                         }, 1000);
                     } else {
                         scanStatus.style.color = "#ff3355";
@@ -191,20 +188,14 @@
                 });
         }
 
-        // FUNCIÓN QUE ARRANCA EL MOTOR DEL JUEGO
-        function iniciarJuego() {
-            console.log("Juego iniciado con el código:", activeTicketCode);
-            // AQUÍ INICIAS TU BUCLE / RENDER DE THREE.JS O CANVAS
-        }
-
-        // LLAMAR A ESTA FUNCIÓN AL PERDER O TERMINAR LA CARRERA
+        // GUARDADO DE PUNTAJE AL FINALIZAR LA PARTIDA
         function guardarResultadoPartida(puntos) {
             if (!activeTicketCode) return;
 
             fetch(`${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${puntos}`)
                 .then(res => res.json())
                 .then(data => {
-                    console.log("Resultado guardado exitosamente:", data);
+                    console.log("Resultado guardado correctamente:", data);
                 })
                 .catch(err => console.error("Error al registrar puntaje:", err));
         }
