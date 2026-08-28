@@ -88,7 +88,7 @@
 </head>
 <body>
 
-    <!-- 1. PANTALLA DE INGRESO CON ESCÁNER -->
+    <!-- OVERLAY DE INGRESO POR ESCÁNER -->
     <div id="scan-overlay">
         <div class="scan-card">
             <h2>🏎️ EXTRA GNC TURBO RACER</h2>
@@ -100,9 +100,9 @@
         </div>
     </div>
 
-    <!-- 2. AQUÍ VA EL CONTENIDO Y CANVAS DE TU JUEGO EXISTENTE -->
+    <!-- CONTENEDOR DEL JUEGO -->
     <div id="game-container" style="width: 100vw; height: 100vh;">
-        <!-- TU CANVAS O LÓGICA RENDERIZADORA DE CARRERA -->
+        <!-- AQUÍ SE RENDERIZA TU JUEGO THREE.JS / CANVAS -->
     </div>
 
     <script>
@@ -148,56 +148,61 @@
             scanStatus.innerText = "Verificando ticket...";
             barcodeInput.disabled = true;
 
-            fetch(`${WEB_APP_URL}?action=validarCodigo&codigo=${encodeURIComponent(codigo)}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === "OK") {
-                        scanStatus.style.color = "#00ff88";
-                        scanStatus.innerText = "¡CÓDIGO VÁLIDO! INICIANDO...";
-                        activeTicketCode = codigo;
+            fetch(`${WEB_APP_URL}?action=validarCodigo&codigo=${encodeURIComponent(codigo)}`, {
+                method: "GET",
+                redirect: "follow"
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "OK") {
+                    scanStatus.style.color = "#00ff88";
+                    scanStatus.innerText = "¡CÓDIGO VÁLIDO! INICIANDO...";
+                    activeTicketCode = codigo;
 
-                        setTimeout(() => {
-                            // OCULTA EL OVERLAY PARA MOSTRAR EL JUEGO
-                            scanOverlay.style.display = 'none';
-                            barcodeInput.value = "";
-                            barcodeInput.disabled = false;
-                            
-                            // LLAMADA A LA FUNCIÓN QUE INICIA EL JUEGO
-                            if (typeof iniciarJuego === "function") {
-                                iniciarJuego();
-                            }
-                        }, 1000);
-                    } else {
-                        scanStatus.style.color = "#ff3355";
-                        scanStatus.innerText = data.message || "Código inválido o ya usado";
-                        setTimeout(() => {
-                            barcodeInput.value = "";
-                            barcodeInput.disabled = false;
-                            barcodeInput.focus();
-                        }, 1500);
-                    }
-                })
-                .catch(err => {
+                    setTimeout(() => {
+                        scanOverlay.style.display = 'none';
+                        barcodeInput.value = "";
+                        barcodeInput.disabled = false;
+                        
+                        if (typeof iniciarJuego === "function") {
+                            iniciarJuego();
+                        }
+                    }, 1000);
+                } else {
                     scanStatus.style.color = "#ff3355";
-                    scanStatus.innerText = "Error de conexión con la base de datos";
+                    scanStatus.innerText = data.message || "Código inválido o ya usado";
                     setTimeout(() => {
                         barcodeInput.value = "";
                         barcodeInput.disabled = false;
                         barcodeInput.focus();
                     }, 1500);
-                });
+                }
+            })
+            .catch(err => {
+                console.error("Error en fetch:", err);
+                scanStatus.style.color = "#ff3355";
+                scanStatus.innerText = "Error de conexión con la base de datos";
+                setTimeout(() => {
+                    barcodeInput.value = "";
+                    barcodeInput.disabled = false;
+                    barcodeInput.focus();
+                }, 1500);
+            });
         }
 
         // GUARDADO DE PUNTAJE AL FINALIZAR LA PARTIDA
         function guardarResultadoPartida(puntos) {
             if (!activeTicketCode) return;
 
-            fetch(`${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${puntos}`)
-                .then(res => res.json())
-                .then(data => {
-                    console.log("Resultado guardado correctamente:", data);
-                })
-                .catch(err => console.error("Error al registrar puntaje:", err));
+            fetch(`${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${puntos}`, {
+                method: "GET",
+                redirect: "follow"
+            })
+            .then(res => res.json())
+            .then(data => {
+                console.log("Resultado guardado correctamente:", data);
+            })
+            .catch(err => console.error("Error al registrar puntaje:", err));
         }
     </script>
 </body>
