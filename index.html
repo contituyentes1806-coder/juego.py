@@ -157,12 +157,14 @@
             cursor: pointer;
         }
 
+        /* --- GAME OVER SCREEN --- */
         #game-over-screen {
             position: absolute; inset: 0;
             background: rgba(3, 4, 8, 0.95);
             display: none; flex-direction: column;
             justify-content: center; align-items: center;
             z-index: 200; color: white;
+            padding: 20px;
         }
 
         #game-over-screen h1 { font-size: 36px; color: #ff3355; margin-bottom: 10px; }
@@ -173,11 +175,89 @@
             background: #ffcc00; color: #000; border: none;
             border-radius: 25px; cursor: pointer;
         }
+
+        /* --- COMPROBANTE DE PREMIO (OCULTO EN PANTALLA) --- */
+        #print-ticket {
+            display: none;
+        }
+
+        /* --- REGLAS EXCLUSIVAS PARA LA IMPRESORA TÉRMICA (EPSON TM-T900FA / 80mm) --- */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+
+            #print-ticket, #print-ticket * {
+                visibility: visible;
+            }
+
+            #print-ticket {
+                display: block !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 72mm;
+                margin: 0;
+                padding: 5px;
+                background: #ffffff !important;
+                color: #000000 !important;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 12px;
+                text-align: center;
+            }
+
+            .ticket-header {
+                font-weight: bold;
+                font-size: 16px;
+                text-transform: uppercase;
+                border-bottom: 2px dashed #000;
+                padding-bottom: 8px;
+                margin-bottom: 8px;
+            }
+
+            .ticket-body {
+                margin: 10px 0;
+                text-align: left;
+            }
+
+            .ticket-row {
+                display: flex;
+                justify-content: space-between;
+                margin: 4px 0;
+                font-size: 11px;
+            }
+
+            .ticket-prize {
+                border: 2px solid #000;
+                padding: 8px;
+                margin: 10px 0;
+                text-align: center;
+                font-weight: bold;
+                font-size: 14px;
+                text-transform: uppercase;
+            }
+
+            .ticket-qr {
+                margin: 12px 0;
+                display: flex;
+                justify-content: center;
+            }
+
+            .ticket-footer {
+                border-top: 1px dashed #000;
+                padding-top: 8px;
+                font-size: 10px;
+                text-align: center;
+            }
+        }
     </style>
+    <!-- Librerías Externas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
+    <!-- OVERLAY ESCÁNER -->
     <div id="scan-overlay">
         <div class="scan-card">
             <h2>🏎️ EXTRA GNC TURBO RACER</h2>
@@ -189,6 +269,7 @@
 
     <button id="audio-btn" onclick="toggleAudio()">🔊 AUDIO</button>
 
+    <!-- UI JUEGO -->
     <div id="ui-container">
         <div class="ui-box">ETAPA: <span id="stage-val">1</span><span id="diff-val" class="diff-tag">FÁCIL</span></div>
         <div class="ui-box">PTS: <span id="score-val">0</span></div>
@@ -208,15 +289,48 @@
         </div>
     </div>
 
+    <!-- PANTALLA GAME OVER -->
     <div id="game-over-screen">
-        <h1>¡GAME OVER!</h1>
-        <p id="final-score" style="font-size: 18px;">Puntuación Final: 0</p>
+        <h1 id="go-title">¡GAME OVER!</h1>
+        <p id="final-score" style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">PUNTUACIÓN FINAL: 0 PTS</p>
+        
+        <div id="prize-result-box" style="margin: 15px 0; text-align: center; max-width: 340px; width: 100%;"></div>
+
         <button id="restart-btn" onclick="resetGame()">NUEVO TICKET</button>
     </div>
 
+    <!-- PLANTILLA COMPROBANTE DE PREMIO (IMPRESIÓN FÍSICA) -->
+    <div id="print-ticket">
+        <div class="ticket-header">
+            ⛽ EXTRA GNC ⛽<br>
+            <span style="font-size: 11px;">ESTACIÓN DE SERVICIO</span>
+        </div>
+        
+        <div><strong>¡COMPROBANTE DE PREMIO!</strong></div>
+        
+        <div class="ticket-body">
+            <div class="ticket-row"><span>FECHA:</span> <span id="t-fecha">--/--/----</span></div>
+            <div class="ticket-row"><span>HORA:</span> <span id="t-hora">--:--</span></div>
+            <div class="ticket-row"><span>TICKET ORIGEN:</span> <span id="t-codigo">------</span></div>
+            <div class="ticket-row"><span>PUNTAJE:</span> <span id="t-puntos">0 PTS</span></div>
+        </div>
+
+        <div class="ticket-prize">
+            <span id="t-premio-nombre">DESCUENTO GNC</span>
+        </div>
+
+        <div class="ticket-qr" id="qrcode-container"></div>
+
+        <div class="ticket-footer">
+            Presente este comprobante en caja o Shop para canjear su premio.<br>
+            <em>¡Gracias por elegirnos!</em>
+        </div>
+    </div>
+
     <script>
-        // --- INTEGRACIÓN APPS SCRIPT ---
+        // --- CONFIGURACIÓN Y APPS SCRIPT ---
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUe4u1ViXI-xj-PKUbVxFaCz1e8AKmVa5Ckh2haFyqu-EZL5hf7O0TrSIalZNdrayv3w/exec";
+        const PUNTAJE_MINIMO_PREMIO = 150; // Umbral necesario para ganar premio
         let activeTicketCode = "";
 
         const barcodeInput = document.getElementById('barcode-input');
@@ -273,13 +387,48 @@
             });
         }
 
-        function guardarResultadoPartida(puntos) {
+        function guardarResultadoPartida(puntos, premioId) {
             if (!activeTicketCode) return;
-            fetch(`${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${puntos}`, { method: "GET", redirect: "follow" })
+            fetch(`${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${puntos}&premio=${encodeURIComponent(premioId)}`, { method: "GET", redirect: "follow" })
             .catch(err => console.error("Error al guardar puntos:", err));
         }
 
-        // --- CÓDIGO ORIGINAL 3D THREE.JS (SIN ALTERACIONES) ---
+        // --- SISTEMA DE PREMIOS E IMPRESIÓN ---
+        function obtenerPremio(puntuacion) {
+            if (puntuacion >= 300) {
+                return { nombre: "🏆 10% DESC. EN CAFETERÍA", id: "PREMIO_GOLD" };
+            } else {
+                return { nombre: "🥈 5% DESC. PRÓXIMA RECARGA GNC", id: "PREMIO_SILVER" };
+            }
+        }
+
+        function imprimirTicketPremio(premio) {
+            const ahora = new Date();
+
+            document.getElementById('t-fecha').innerText = ahora.toLocaleDateString('es-AR');
+            document.getElementById('t-hora').innerText = ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('t-codigo').innerText = activeTicketCode || "N/A";
+            document.getElementById('t-puntos').innerText = `${score} PTS`;
+            document.getElementById('t-premio-nombre').innerText = premio.nombre;
+
+            const qrContainer = document.getElementById('qrcode-container');
+            qrContainer.innerHTML = "";
+            
+            new QRCode(qrContainer, {
+                text: `VALIDAR|TK:${activeTicketCode}|PTS:${score}|PREMIO:${premio.id}`,
+                width: 90,
+                height: 90,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+
+            setTimeout(() => {
+                window.print();
+            }, 250);
+        }
+
+        // --- CÓDIGO 3D THREE.JS INTACTO ---
         function createTextTexture(title, subtitle, bgColor = '#f1c40f') {
             const canvas = document.createElement('canvas');
             canvas.width = 512; canvas.height = 384;
@@ -688,11 +837,38 @@
             document.getElementById('lives-val').innerText = '❤️'.repeat(Math.max(0, lives));
         }
 
+        // --- MANEJO DE FIN DE JUEGO ---
         function triggerGameOver() {
             isGameOver = true;
-            document.getElementById('final-score').innerText = `Puntuación Final: ${score}`;
+            const resultBox = document.getElementById('prize-result-box');
+            document.getElementById('final-score').innerText = `PUNTUACIÓN FINAL: ${score} PTS`;
+            
+            if (score >= PUNTAJE_MINIMO_PREMIO) {
+                const premio = obtenerPremio(score);
+                resultBox.innerHTML = `
+                    <div style="background: rgba(0, 255, 136, 0.15); border: 2px solid #00ff88; border-radius: 8px; padding: 12px; color: #00ff88;">
+                        <h3 style="margin-bottom: 5px;">🎉 ¡FELICITACIONES! 🎉</h3>
+                        <p style="color: #fff; font-size: 16px; font-weight: bold;">${premio.nombre}</p>
+                        <p style="font-size: 12px; color: #a0aec0; margin-top: 8px;">Imprimiendo ticket de premio...</p>
+                    </div>
+                `;
+                
+                guardarResultadoPartida(score, premio.id);
+                imprimirTicketPremio(premio);
+                
+            } else {
+                resultBox.innerHTML = `
+                    <div style="background: rgba(255, 204, 0, 0.1); border: 2px solid #ffcc00; border-radius: 8px; padding: 12px; color: #ffcc00;">
+                        <h3 style="margin-bottom: 5px;">¡GRACIAS POR JUGAR!</h3>
+                        <p style="color: #fff; font-size: 14px; margin-top: 5px;">No alcanzaste el puntaje mínimo para canje en esta oportunidad.</p>
+                        <p style="color: #00d2ff; font-size: 13px; font-weight: bold; margin-top: 10px;">¡Carga en tu próxima compra y vuelve a intentarlo!</p>
+                    </div>
+                `;
+                
+                guardarResultadoPartida(score, "SIN_PREMIO");
+            }
+
             document.getElementById('game-over-screen').style.display = 'flex';
-            guardarResultadoPartida(score);
         }
 
         function resetGame() {
