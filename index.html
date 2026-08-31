@@ -181,7 +181,7 @@
             display: none;
         }
 
-        /* --- REGLAS EXCLUSIVAS PARA LA IMPRESORA TÉRMICA EPSON (80mm / 72mm imprimibles) --- */
+        /* --- REGLAS EXCLUSIVAS PARA IMPRESORA TÉRMICA (80mm / 72mm imprimibles) --- */
         @media print {
             body * {
                 visibility: hidden;
@@ -260,32 +260,32 @@
     <!-- OVERLAY ESCÁNER -->
     <div id="scan-overlay">
         <div class="scan-card">
-            <h2>🏎️ EXTRA GNC TURBO RACER</h2>
+            <h2>EXTRA GNC TURBO RACER</h2>
             <p>ESCANEE EL CÓDIGO DE SU TICKET PARA JUGAR</p>
             <input type="text" id="barcode-input" placeholder="Aguardando lectura..." autofocus autocomplete="off">
             <div id="scan-status">Aguardando código...</div>
         </div>
     </div>
 
-    <button id="audio-btn" onclick="toggleAudio()">🔊 AUDIO</button>
+    <button id="audio-btn" onclick="toggleAudio()">AUDIO</button>
 
     <!-- UI JUEGO -->
     <div id="ui-container">
         <div class="ui-box">ETAPA: <span id="stage-val">1</span><span id="diff-val" class="diff-tag">FÁCIL</span></div>
         <div class="ui-box">PTS: <span id="score-val">0</span></div>
-        <div class="ui-box">VIDAS: <span id="lives-val">❤️❤️❤️</span></div>
+        <div class="ui-box">VIDAS: <span id="lives-val"></span></div>
     </div>
 
-    <div id="warning-banner">⚠️ ¡PRECAUCIÓN! ANIMALES EN RUTA</div>
+    <div id="warning-banner">¡PRECAUCIÓN! ANIMALES EN RUTA</div>
 
     <div id="controls-container">
         <div class="btn-group">
-            <div class="control-btn" id="btn-left">❮</div>
-            <div class="control-btn" id="btn-right">❯</div>
+            <div class="control-btn" id="btn-left">◄</div>
+            <div class="control-btn" id="btn-right">►</div>
         </div>
         <div class="btn-group">
-            <div class="control-btn" id="btn-brake">🛑</div>
-            <div class="control-btn" id="btn-boost">⚡</div>
+            <div class="control-btn" id="btn-brake"> freno </div>
+            <div class="control-btn" id="btn-boost">▲</div>
         </div>
     </div>
 
@@ -302,7 +302,7 @@
     <!-- PLANTILLA COMPROBANTE DE PREMIO (IMPRESIÓN FÍSICA) -->
     <div id="print-ticket">
         <div class="ticket-header">
-            ⛽ EXTRA GNC ⛽<br>
+            EXTRA GNC<br>
             <span style="font-size: 11px;">ESTACIÓN DE SERVICIO</span>
         </div>
         
@@ -316,7 +316,7 @@
         </div>
 
         <div class="ticket-prize">
-            <span id="t-premio-nombre">DESCUENTO GNC</span>
+            <span id="t-premio-nombre">CONSULTANDO PREMIO...</span>
         </div>
 
         <div class="ticket-qr" id="qrcode-container"></div>
@@ -387,35 +387,21 @@
             });
         }
 
-        function guardarResultadoPartida(puntos, premioDetalle) {
-            if (!activeTicketCode) return;
-            fetch(`${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${puntos}&premio=${encodeURIComponent(premioDetalle)}`, { method: "GET", redirect: "follow" })
-            .catch(err => console.error("Error al guardar registro:", err));
-        }
-
-        // --- PREMIOS E IMPRESIÓN ---
-        function obtenerPremio(puntuacion) {
-            if (puntuacion >= 300) {
-                return { nombre: "🏆 10% DESC. EN CAFETERÍA", id: "PREMIO_GOLD" };
-            } else {
-                return { nombre: "🥈 5% DESC. PRÓXIMA RECARGA GNC", id: "PREMIO_SILVER" };
-            }
-        }
-
-        function imprimirTicketPremio(premio) {
+        // --- MANEJO DE IMPRESIÓN DEL COMPROBANTE ---
+        function imprimirTicketPremio(premioTexto) {
             const ahora = new Date();
 
             document.getElementById('t-fecha').innerText = ahora.toLocaleDateString('es-AR');
             document.getElementById('t-hora').innerText = ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
             document.getElementById('t-codigo').innerText = activeTicketCode || "N/A";
             document.getElementById('t-puntos').innerText = `${score} PTS`;
-            document.getElementById('t-premio-nombre').innerText = premio.nombre;
+            document.getElementById('t-premio-nombre').innerText = premioTexto;
 
             const qrContainer = document.getElementById('qrcode-container');
             qrContainer.innerHTML = "";
             
             new QRCode(qrContainer, {
-                text: `VALIDAR|TK:${activeTicketCode}|PTS:${score}|PREMIO:${premio.id}`,
+                text: `VALIDAR|TK:${activeTicketCode}|PTS:${score}|PREMIO:${premioTexto}`,
                 width: 90,
                 height: 90,
                 colorDark: "#000000",
@@ -425,7 +411,7 @@
 
             setTimeout(() => {
                 window.print();
-            }, 250);
+            }, 300);
         }
 
         // --- GAME LOGIC & THREE.JS ---
@@ -462,7 +448,7 @@
 
         function toggleAudio() {
             audioEnabled = !audioEnabled;
-            document.getElementById('audio-btn').innerText = audioEnabled ? "🔊 AUDIO" : "🔇 MUTED";
+            document.getElementById('audio-btn').innerText = audioEnabled ? "AUDIO" : "MUTED";
             if (audioCtx) audioEnabled ? audioCtx.resume() : audioCtx.suspend();
         }
 
@@ -742,8 +728,8 @@
             else {
                 if (rand < 0.25) obs = createCone();
                 else if (rand < 0.45) obs = createBlock();
-                else if (rand < 0.7) { obs = createPedestrian(); spawnSign('pedestrian'); showWarningHUD('⚠️ ¡PRECAUCIÓN! PEATONES EN RUTA'); }
-                else { obs = createAnimal(); spawnSign('animal'); showWarningHUD('⚠️ ¡PRECAUCIÓN! ANIMALES SUELTOS'); playAnimalSound(); }
+                else if (rand < 0.7) { obs = createPedestrian(); spawnSign('pedestrian'); showWarningHUD('¡PRECAUCIÓN! PEATONES EN RUTA'); }
+                else { obs = createAnimal(); spawnSign('animal'); showWarningHUD('¡PRECAUCIÓN! ANIMALES SUELTOS'); playAnimalSound(); }
             }
             const lane = Math.floor(Math.random() * 3) - 1;
             const isCrossing = (obs.userData && (obs.userData.type === 'pedestrian' || obs.userData.type === 'animal'));
@@ -837,42 +823,54 @@
             document.getElementById('lives-val').innerText = '❤️'.repeat(Math.max(0, lives));
         }
 
-        // --- MANEJO DE FIN DE JUEGO ---
-        function triggerGameOver() {
+        // --- MANEJO DE FIN DE JUEGO E INTEGRACIÓN ASÍNCRONA CON APPS SCRIPT ---
+        async function triggerGameOver() {
             isGameOver = true;
             const resultBox = document.getElementById('prize-result-box');
             document.getElementById('final-score').innerText = `PUNTUACIÓN FINAL: ${score} PTS`;
             
-            if (score >= PUNTAJE_MINIMO_PREMIO) {
-                const premio = obtenerPremio(score);
-                const textoResultado = premio.nombre;
-                
+            // Estado visual de carga
+            resultBox.innerHTML = `
+                <div style="background: rgba(0, 210, 255, 0.1); border: 2px solid #00d2ff; border-radius: 8px; padding: 12px; color: #00d2ff;">
+                    <p style="font-size: 14px; font-weight: bold;">Procesando resultado y consultando premio...</p>
+                </div>
+            `;
+            document.getElementById('game-over-screen').style.display = 'flex';
+
+            let premioObtenido = "Siga participando";
+
+            try {
+                // Registro asíncrono y consulta directa a la tabla_premios
+                const url = `${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${score}`;
+                const response = await fetch(url, { method: "GET", redirect: "follow" });
+                const data = await response.json();
+
+                if (data.status === "OK" && data.premioAsignado) {
+                    premioObtenido = data.premioAsignado;
+                }
+            } catch (err) {
+                console.error("Error al comunicarse con Apps Script:", err);
+            }
+
+            // Renderizado de resultado según la respuesta devuelta por Google Sheets
+            if (score >= PUNTAJE_MINIMO_PREMIO && premioObtenido !== "Siga participando") {
                 resultBox.innerHTML = `
                     <div style="background: rgba(0, 255, 136, 0.15); border: 2px solid #00ff88; border-radius: 8px; padding: 12px; color: #00ff88;">
                         <h3 style="margin-bottom: 5px;">🎉 ¡FELICITACIONES! 🎉</h3>
-                        <p style="color: #fff; font-size: 16px; font-weight: bold;">${premio.nombre}</p>
+                        <p style="color: #fff; font-size: 16px; font-weight: bold;">${premioObtenido}</p>
                         <p style="font-size: 12px; color: #a0aec0; margin-top: 8px;">Imprimiendo comprobante de premio...</p>
                     </div>
                 `;
-                
-                guardarResultadoPartida(score, textoResultado);
-                imprimirTicketPremio(premio);
-                
+                imprimirTicketPremio(premioObtenido);
             } else {
-                const textoResultado = "SIGUE PARTICIPANDO (SIN PREMIO)";
-                
                 resultBox.innerHTML = `
                     <div style="background: rgba(255, 204, 0, 0.1); border: 2px solid #ffcc00; border-radius: 8px; padding: 12px; color: #ffcc00;">
                         <h3 style="margin-bottom: 5px;">¡GRACIAS POR JUGAR!</h3>
-                        <p style="color: #fff; font-size: 14px; margin-top: 5px;">No alcanzaste el puntaje mínimo para canje en esta oportunidad.</p>
-                        <p style="color: #00d2ff; font-size: 13px; font-weight: bold; margin-top: 10px;">¡Carga en tu próxima compra y vuelve a intentarlo!</p>
+                        <p style="color: #fff; font-size: 14px; margin-top: 5px;">${premioObtenido}</p>
+                        <p style="color: #00d2ff; font-size: 13px; font-weight: bold; margin-top: 10px;">¡Volvé a cargar en tu próxima visita e intentalo de nuevo!</p>
                     </div>
                 `;
-                
-                guardarResultadoPartida(score, textoResultado);
             }
-
-            document.getElementById('game-over-screen').style.display = 'flex';
         }
 
         function resetGame() {
