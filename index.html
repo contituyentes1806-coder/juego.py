@@ -231,13 +231,34 @@
         './' + modelPath,
         function (gltf) {
           playerCar = gltf.scene;
-          playerCar.position.set(0, 0, 0);
+
+          // Normalización de escala y posición automática
+          const box = new THREE.Box3().setFromObject(playerCar);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+
+          // Ajusta el modelo a un tamaño estándar de 3.5 unidades de largo
+          const targetLength = 3.5;
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const scaleFactor = targetLength / (maxDim || 1);
+
+          playerCar.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+          // Recalcula la caja con la nueva escala para apoyar el auto sobre la pista
+          const scaledBox = new THREE.Box3().setFromObject(playerCar);
+          const center = new THREE.Vector3();
+          scaledBox.getCenter(center);
+
+          playerCar.position.x = -center.x;
+          playerCar.position.y = -scaledBox.min.y; // Apoya las ruedas exactamente sobre Y = 0
+          playerCar.position.z = -center.z;
+
           scene.add(playerCar);
         },
         undefined,
         function (error) {
           console.error("Error al cargar " + modelPath + ":", error);
-          // Fallback de contingencia si el modelo no existe o falla
+          // Fallback de contingencia si el modelo falla
           const geo = new THREE.BoxGeometry(1.5, 0.8, 3);
           const mat = new THREE.MeshStandardMaterial({ color: 0x00f0ff });
           playerCar = new THREE.Mesh(geo, mat);
