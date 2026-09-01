@@ -158,7 +158,7 @@
           <label style="display:block; margin-bottom: 5px; font-size: 12px;">Volumen Master:</label>
           <input type="range" id="master-volume" min="0" max="100" value="100" style="width: 100%; margin-bottom: 15px;">
 
-          <label style="display:block; margin-bottom: 5px; font-size: 13px;">Modo Pantalla / TV:</label>
+          <label style="display:block; margin-bottom: 5px; font-size: 12px;">Modo Pantalla / TV:</label>
           <select id="display-mode" class="modal-select" onchange="applyDisplayMode(this.value)">
             <option value="normal">Horizontal Estándar</option>
             <option value="rotate-90">TV Vertical (90°)</option>
@@ -174,8 +174,7 @@
 
   <script>
     const ADMIN_PASS = "118308";
-    // Coloca aquí la URL generada al desplegar tu Google Apps Script
-    const APPS_SCRIPT_URL = "TU_URL_DE_APPS_SCRIPT_AQUI"; 
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyUe4u1ViXI-xj-PKUbVxFaCz1e8AKmVa5Ckh2haFyqu-EZL5hf7O0TrSIalZNdrayv3w/exec";
 
     let scene, camera, renderer, loader;
     let playerCar = null;
@@ -275,14 +274,12 @@
       loadCarModel(newModel);
     }
 
-    // Envia los datos de la partida a Google Sheets
-    function saveGameSession(player, score) {
-      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "TU_URL_DE_APPS_SCRIPT_AQUI") return;
-
+    // Función global para registrar resultados en Google Sheets
+    window.saveGameSession = function(player, score) {
       const payload = {
-        player: player,
+        player: player || "Anónimo",
         carModel: currentCarModel,
-        score: score
+        score: score || 0
       };
 
       fetch(APPS_SCRIPT_URL, {
@@ -291,7 +288,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       }).catch(err => console.error("Error enviando datos a Sheets:", err));
-    }
+    };
 
     function animate() {
       requestAnimationFrame(animate);
