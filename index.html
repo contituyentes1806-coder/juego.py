@@ -16,7 +16,6 @@
       touch-action: none;
     }
 
-    /* Contenedor Principal (Soporta Rotación TV Vertical) */
     #game-container {
       width: 100vw;
       height: 100vh;
@@ -50,7 +49,6 @@
 
     canvas { display: block; width: 100%; height: 100%; }
 
-    /* Botón flotante para abrir configuración */
     #settings-btn {
       position: absolute;
       top: 15px;
@@ -66,7 +64,6 @@
       backdrop-filter: blur(4px);
     }
 
-    /* Modal de Configuración */
     .modal {
       display: none;
       position: absolute;
@@ -98,16 +95,8 @@
       letter-spacing: 1px;
     }
 
-    .setting-group {
-      margin-bottom: 18px;
-    }
-
-    .setting-group label {
-      display: block;
-      margin-bottom: 8px;
-      font-size: 14px;
-    }
-
+    .setting-group { margin-bottom: 18px; }
+    .setting-group label { display: block; margin-bottom: 8px; font-size: 14px; }
     .setting-group select, .setting-group input[type="range"] {
       width: 100%;
       padding: 8px;
@@ -132,7 +121,6 @@
     }
   </style>
 
-  <!-- CDNs de Three.js y GLTFLoader -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
@@ -141,13 +129,12 @@
   <div id="game-container">
     <button id="settings-btn" onclick="toggleSettings()">⚙️</button>
 
-    <!-- UI Modal Settings -->
     <div id="settings-modal" class="modal">
       <div class="modal-content">
         <h2>Configuración</h2>
         
         <div class="setting-group">
-          <label for="master-volume">Volumen Master (Potenciado): <span id="vol-val">100%</span></label>
+          <label for="master-volume">Volumen Master: <span id="vol-val">100%</span></label>
           <input type="range" id="master-volume" min="0" max="300" value="100">
         </div>
 
@@ -175,21 +162,19 @@
   </div>
 
   <script>
-    // Variables principales
     let scene, camera, renderer, playerCar, audioListener, compressorNode;
     let currentSettings = { volume: 100, graphics: 'medium', display: 'normal' };
 
-    // Inicialización de la escena 3D
     function init() {
       const container = document.getElementById('game-container');
 
-      // Escena, Cámara y Renderer
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x030408);
 
+      // CÁMARA CORREGIDA: Z positivo (6), altura adecuada (2.5) y mirando al centro del auto (0, 0.5, 0)
       camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.set(0, 3, -6);
-      camera.lookAt(0, 1, 0);
+      camera.position.set(0, 2.5, 6);
+      camera.lookAt(0, 0.5, 0);
 
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -201,26 +186,29 @@
       scene.add(ambientLight);
 
       const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-      dirLight.position.set(5, 10, -5);
+      dirLight.position.set(5, 10, 5);
       dirLight.castShadow = true;
       scene.add(dirLight);
 
-      // Carga del Modelo 3D del Vehículo
+      // Plano de suelo (pista/asfalto)
+      const gridHelper = new THREE.GridHelper(100, 50, 0x00f0ff, 0x1b2033);
+      gridHelper.position.y = 0;
+      scene.add(gridHelper);
+
+      // Carga del Modelo 3D
       const loader = new THREE.GLTFLoader();
       loader.load('player_car.glb', function (gltf) {
         playerCar = gltf.scene;
-        playerCar.scale.set(1, 1, 1);
         playerCar.position.set(0, 0, 0);
         scene.add(playerCar);
       }, undefined, function (error) {
         console.error('Error cargando player_car.glb:', error);
       });
 
-      // Configuración del Sistema de Audio Potenciado (Web Audio API)
+      // Compresor de Audio Dinámico
       audioListener = new THREE.AudioListener();
       camera.add(audioListener);
 
-      // Crear Nodo Compresor Dinámico para elevar presencia/volumen sin distorsión
       const audioCtx = audioListener.context;
       compressorNode = audioCtx.createDynamicsCompressor();
       compressorNode.threshold.setValueAtTime(-24, audioCtx.currentTime);
@@ -229,30 +217,25 @@
       compressorNode.attack.setValueAtTime(0.003, audioCtx.currentTime);
       compressorNode.release.setValueAtTime(0.25, audioCtx.currentTime);
 
-      // Conectar AudioListener -> Compresor -> Salida
       audioListener.getInput().connect(compressorNode);
       compressorNode.connect(audioCtx.destination);
 
-      // Cargar opciones guardadas
       loadStoredSettings();
 
-      // Eventos
       window.addEventListener('resize', onWindowResize);
       setupSettingsEvents();
 
-      // Bucle de Renderizado
       animate();
     }
 
     function animate() {
       requestAnimationFrame(animate);
       if (playerCar) {
-        playerCar.rotation.y += 0.005; // Rotación demo
+        playerCar.rotation.y += 0.005;
       }
       renderer.render(scene, camera);
     }
 
-    // Ajuste de redimensionamiento
     function onWindowResize() {
       const container = document.getElementById('game-container');
       const isRotated = container.classList.contains('rotate-90') || container.classList.contains('rotate-270');
@@ -264,19 +247,16 @@
       renderer.setSize(width, height);
     }
 
-    // Manejo de Modal de Configuración
     function toggleSettings() {
       const modal = document.getElementById('settings-modal');
       const isOpen = modal.style.display === 'flex';
       modal.style.display = isOpen ? 'none' : 'flex';
 
-      // Si el navegador suspendió el AudioContext por falta de interacción, activarlo al hacer clic
       if (audioListener && audioListener.context.state === 'suspended') {
         audioListener.context.resume();
       }
     }
 
-    // Eventos y Persistencia de Opciones
     function setupSettingsEvents() {
       const volInput = document.getElementById('master-volume');
       const volVal = document.getElementById('vol-val');
@@ -303,8 +283,7 @@
 
     function applyVolume(value) {
       if (audioListener) {
-        const volumeMultiplier = value / 100; // Permite elevar hasta 3.0 (300%)
-        audioListener.setMasterVolume(volumeMultiplier);
+        audioListener.setMasterVolume(value / 100);
       }
       saveSettings();
     }
