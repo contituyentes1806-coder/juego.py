@@ -158,7 +158,7 @@
           <label style="display:block; margin-bottom: 5px; font-size: 12px;">Volumen Master:</label>
           <input type="range" id="master-volume" min="0" max="100" value="100" style="width: 100%; margin-bottom: 15px;">
 
-          <label style="display:block; margin-bottom: 5px; font-size: 12px;">Modo Pantalla / TV:</label>
+          <label style="display:block; margin-bottom: 5px; font-size: 13px;">Modo Pantalla / TV:</label>
           <select id="display-mode" class="modal-select" onchange="applyDisplayMode(this.value)">
             <option value="normal">Horizontal Estándar</option>
             <option value="rotate-90">TV Vertical (90°)</option>
@@ -174,8 +174,12 @@
 
   <script>
     const ADMIN_PASS = "118308";
+    // Coloca aquí la URL generada al desplegar tu Google Apps Script
+    const APPS_SCRIPT_URL = "TU_URL_DE_APPS_SCRIPT_AQUI"; 
+
     let scene, camera, renderer, loader;
     let playerCar = null;
+    let currentCarModel = "player_car.glb";
 
     function init() {
       const container = document.getElementById('game-container');
@@ -211,9 +215,9 @@
       loader = new THREE.GLTFLoader();
 
       // Cargar modelo guardado o el valor por defecto
-      const savedCar = localStorage.getItem('selectedCar') || 'player_car.glb';
-      document.getElementById('car-select').value = savedCar;
-      loadCarModel(savedCar);
+      currentCarModel = localStorage.getItem('selectedCar') || 'player_car.glb';
+      document.getElementById('car-select').value = currentCarModel;
+      loadCarModel(currentCarModel);
 
       // Evento Resize
       window.addEventListener('resize', onWindowResize);
@@ -232,25 +236,23 @@
         function (gltf) {
           playerCar = gltf.scene;
 
-          // Normalización de escala y posición automática
+          // Escalado automático y centrado en pista
           const box = new THREE.Box3().setFromObject(playerCar);
           const size = new THREE.Vector3();
           box.getSize(size);
 
-          // Ajusta el modelo a un tamaño estándar de 3.5 unidades de largo
           const targetLength = 3.5;
           const maxDim = Math.max(size.x, size.y, size.z);
           const scaleFactor = targetLength / (maxDim || 1);
 
           playerCar.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
-          // Recalcula la caja con la nueva escala para apoyar el auto sobre la pista
           const scaledBox = new THREE.Box3().setFromObject(playerCar);
           const center = new THREE.Vector3();
           scaledBox.getCenter(center);
 
           playerCar.position.x = -center.x;
-          playerCar.position.y = -scaledBox.min.y; // Apoya las ruedas exactamente sobre Y = 0
+          playerCar.position.y = -scaledBox.min.y;
           playerCar.position.z = -center.z;
 
           scene.add(playerCar);
@@ -258,7 +260,6 @@
         undefined,
         function (error) {
           console.error("Error al cargar " + modelPath + ":", error);
-          // Fallback de contingencia si el modelo falla
           const geo = new THREE.BoxGeometry(1.5, 0.8, 3);
           const mat = new THREE.MeshStandardMaterial({ color: 0x00f0ff });
           playerCar = new THREE.Mesh(geo, mat);
@@ -269,8 +270,27 @@
     }
 
     function changeCarModel(newModel) {
+      currentCarModel = newModel;
       localStorage.setItem('selectedCar', newModel);
       loadCarModel(newModel);
+    }
+
+    // Envia los datos de la partida a Google Sheets
+    function saveGameSession(player, score) {
+      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "TU_URL_DE_APPS_SCRIPT_AQUI") return;
+
+      const payload = {
+        player: player,
+        carModel: currentCarModel,
+        score: score
+      };
+
+      fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(err => console.error("Error enviando datos a Sheets:", err));
     }
 
     function animate() {
@@ -315,12 +335,10 @@
       onWindowResize();
     }
 
-    // Permitir Enter en el input de clave
     document.getElementById('admin-pass').addEventListener('keypress', function (e) {
       if (e.key === 'Enter') validatePassword();
     });
 
-    // Inicializar el juego
     window.onload = init;
   </script>
 </body>
