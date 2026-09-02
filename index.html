@@ -210,6 +210,25 @@
             text-align: center;
             font-size: 10px;
         }
+
+        /* CONFIGURACIÓN DE IMPRESIÓN TÉRMICA */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #receipt, #receipt * {
+                visibility: visible;
+            }
+            #receipt {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 10px;
+                box-shadow: none;
+            }
+        }
     </style>
     <!-- Three.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -249,7 +268,7 @@
             
             <div id="prize-result-box"></div>
 
-            <button class="btn-action" style="margin-top: 15px;" onclick="location.reload();">VOLVER AL INICIO</button>
+            <button class="btn-action" style="margin-top: 10px;" onclick="location.reload();">VOLVER AL INICIO</button>
         </div>
     </div>
 
@@ -300,7 +319,7 @@
                         startGame();
                     }, 800);
                 } else if (data.status === "JUGADO") {
-                    // TICKET YA JUGADO -> SE OCULTA SCANNER Y MUESTRA CANJE
+                    // TICKET YA JUGADO -> SE OCULTA SCANNER Y MUESTRA CANJE CON OPCIÓN DE IMPRESIÓN
                     scanOverlay.style.display = 'none';
                     
                     const premioTexto = data.premio || "Consulte en tabla";
@@ -325,6 +344,7 @@
                                 ¡Gracias por su visita!
                             </div>
                         </div>
+                        <button class="btn-action" style="background: #00d2ff; color: #000; margin-bottom: 10px;" onclick="window.print();">🖨️ IMPRIMIR COMPROBANTE</button>
                     `;
 
                     document.getElementById('game-over-screen').style.display = 'flex';
@@ -461,6 +481,7 @@
                             para retirar su premio.
                         </div>
                     </div>
+                    <button class="btn-action" style="background: #00d2ff; color: #000; margin-bottom: 10px;" onclick="window.print();">🖨️ IMPRIMIR COMPROBANTE</button>
                 `;
                 document.getElementById('game-over-screen').style.display = 'flex';
             })
