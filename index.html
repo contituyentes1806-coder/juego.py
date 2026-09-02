@@ -285,6 +285,18 @@
         const scanStatus = document.getElementById('scan-status');
         const scanOverlay = document.getElementById('scan-overlay');
 
+        // FUNCIÓN PARA OBTENER FECHA Y HORA ACTUAL FORMATEADA
+        function getFechaHoraActual() {
+            const ahora = new Date();
+            const dia = String(ahora.getDate()).padStart(2, '0');
+            const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+            const anio = ahora.getFullYear();
+            const horas = String(ahora.getHours()).padStart(2, '0');
+            const minutos = String(ahora.getMinutes()).padStart(2, '0');
+            const segundos = String(ahora.getSeconds()).padStart(2, '0');
+            return `${dia}/${mes}/${anio} ${horas}:${minutos}:${segundos}`;
+        }
+
         // EVENTOS DE ENTRADA DE CÓDIGO
         btnSubmit.addEventListener('click', () => {
             let code = barcodeInput.value.trim();
@@ -324,6 +336,8 @@
                     
                     const premioTexto = data.premio || "Consulte en tabla";
                     const puntosTexto = data.puntos ? `${data.puntos} PTS` : "N/A";
+                    const fechaCanje = getFechaHoraActual();
+                    const fechaJuego = data.fechaJuego || "Registrado";
 
                     document.getElementById('prize-result-box').innerHTML = `
                         <div id="receipt">
@@ -331,6 +345,8 @@
                                 *** SHELL GNC - VERIFICACIÓN ***<br>
                                 CANJE DE PREMIO
                             </div>
+                            <div class="r-line"><span>FECHA CANJE:</span> <strong>${fechaCanje}</strong></div>
+                            <div class="r-line"><span>FECHA JUEGO:</span> <strong>${fechaJuego}</strong></div>
                             <div class="r-line"><span>TICKET:</span> <strong>${codigo}</strong></div>
                             <div class="r-line"><span>ESTADO:</span> <strong>JUGADO</strong></div>
                             <div class="r-line"><span>PUNTOS:</span> <strong>${puntosTexto}</strong></div>
@@ -459,6 +475,7 @@
         }
 
         function finalizarPartida() {
+            const fechaJuego = getFechaHoraActual();
             fetch(`${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${score}`, { method: "GET", redirect: "follow" })
             .then(res => res.json())
             .then(data => {
@@ -469,6 +486,7 @@
                             *** SHELL GNC - TURBO RACER ***<br>
                             COMPROBANTE DE PREMIO
                         </div>
+                        <div class="r-line"><span>FECHA JUEGO:</span> <strong>${fechaJuego}</strong></div>
                         <div class="r-line"><span>CÓDIGO:</span> <strong>${activeTicketCode}</strong></div>
                         <div class="r-line"><span>PUNTAJE:</span> <strong>${score} PTS</strong></div>
                         <hr style="border: 0.5px dashed #000; margin: 5px 0;">
