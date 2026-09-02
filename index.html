@@ -3,18 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GNC TURBO RACER 3D</title><!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GNC TURBO RACER 3D</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; background: #111; color: #fff; }
     #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
     
-    /* Capas UI */
     .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.85); text-align: center; }
     .card { background: #222; border: 2px solid #f39c12; padding: 30px; border-radius: 12px; box-shadow: 0 0 20px rgba(243, 156, 18, 0.4); max-width: 480px; width: 90%; }
     h1 { color: #f39c12; margin-top: 0; }
@@ -24,7 +18,6 @@
     
     #hud { position: absolute; top: 20px; left: 20px; z-index: 5; font-size: 1.5rem; font-weight: bold; color: #f39c12; display: none; text-shadow: 2px 2px 4px #000; }
     
-    /* Formato de Impresión Térmica */
     #print-voucher { display: none; }
     @media print {
       body * { visibility: hidden; }
@@ -39,18 +32,16 @@
   <div id="hud">PUNTOS: <span id="score">0</span></div>
   <div id="canvas-container"></div>
 
-  <!-- Pantalla de Inicio / Lector -->
   <div id="ui-welcome" class="ui-layer">
     <div class="card">
       <h1>GNC TURBO RACER 3D</h1>
       <p id="welcome-msg">Escaneá tu código de barras o ingresalo para comenzar.</p>
       <input type="text" id="ticket-input" placeholder="INGRESAR CÓDIGO" autofocus autocomplete="off">
       <br>
-      <button onclick="procesarIngresoManual()">JUGAR / VALIDAR</button>
+      <button id="btn-submit" onclick="procesarIngresoManual()">JUGAR / VALIDAR</button>
     </div>
   </div>
 
-  <!-- Pantalla de Resultados -->
   <div id="ui-result" class="ui-layer" style="display: none;">
     <div class="card">
       <h2 id="result-title"></h2>
@@ -59,7 +50,6 @@
     </div>
   </div>
 
-  <!-- Comprobante Físico (Ticket Térmico) -->
   <div id="print-voucher">
     <h2>SHELL CONSTITUYENTES</h2>
     <div class="v-line"></div>
@@ -72,10 +62,8 @@
   </div>
 
   <script>
-    // URL de la Web App desplegada en Apps Script
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyUe4u1ViXI-xj-PKUbVxFaCz1e8AKmVa5Ckh2haFyqu-EZL5hf7O0TrSIalZNdrayv3w/exec"; 
 
-    // Detección de origen (Móvil/Casa vs Tótem Estación)
     const urlParams = new URLSearchParams(window.location.search);
     const ORIGEN = urlParams.get('mode') === 'onsite' ? 'onsite' : 'remote';
     
@@ -88,7 +76,6 @@
       document.getElementById('welcome-msg').innerText = "ESTACIÓN: Escaneá tu ticket fiscal para jugar o imprimir tu premio ganado en casa.";
     }
 
-    // --- CAPTURA DE LECTOR DE CÓDIGO DE BARRAS USB ---
     let barcodeBuffer = "";
     let lastKeyTime = Date.now();
 
@@ -115,275 +102,45 @@
       if (code) validarCodigo(code);
     }
 
-    // --- ACCIÓN 1: VALIDAR CÓDIGO CON EL BACKEND (CORS FIX) ---
-    function validarCodigo(code) {
-      activeCodigo = code;
-      document.getElementById('welcome-msg').innerText = "Validando código...";
+    // --- FUNCIÓN DE CONSULTA JSONP (EVITA CONGELAMIENTO Y CORS) ---
+    function fetchJSONP(url, callbackName) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        const timeout = setTimeout(() => {
+          script.remove();
+          delete window[callbackName];
+          reject(new Error("Tiempo de espera agotado con el servidor."));
+        }, 10000);
 
-      const fetchUrl = `${SCRIPT_URL}?action=validarCodigo&codigo=${encodeURIComponent(code)}&origen=${ORIGEN}`;
+        window[callbackName] = (data) => {
+          clearTimeout(timeout);
+          script.remove();
+          delete window[callbackName];
+          resolve(data);
+        };
 
-      fetch(fetchUrl, {
-        method: 'GET',
-        redirect: 'follow'
-      })
-      .then(res => {
-        if (!res.ok) throw new Error("Error en la respuesta del servidor");
-        return res.json();
-      })
-      .then(data => {
-        if (data.status === "OK") {
-          if (data.action === "JUGAR") {
-            document.getElementById('ui-welcome').style.display = 'none';
-            iniciarJuego3D();
-          } else if (data.action === "IMPRIMIR_VOUCHER") {
-            dispararImpresion(data.codigo, data.premio);
-            mostrarResultado("¡PREMIO RETIRADO!", `Se imprimió el comprobante por: <strong>${data.premio}</strong>`);
-          }
-        } else if (data.status === "INFO") {
-          mostrarResultado("PREMIO PENDIENTE", data.message);
-        } else {
-          alert(data.message || "Código no válido.");
-          reiniciarPantalla();
-        }
-      })
-      .catch(err => {
-        console.error("Error de conexión:", err);
-        alert("Error de conexión con el servidor. Verificá que la implementación en Apps Script tenga permisos para 'Cualquiera'.");
-        reiniciarPantalla();
+        script.src = `${url}&callback=${callbackName}`;
+        script.onerror = () => {
+          clearTimeout(timeout);
+          script.remove();
+          delete window[callbackName];
+          reject(new Error("Error al cargar la respuesta del servidor."));
+        };
+
+        document.body.appendChild(script);
       });
     }
 
-    // --- THREE.JS (MOTOR 3D) ---
-    let scene, camera, renderer, carMesh;
-
-    function iniciarJuego3D() {
-      document.getElementById('hud').style.display = 'block';
-      const container = document.getElementById('canvas-container');
-      container.innerHTML = "";
-
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x111111);
-
-      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.set(0, 3, 7);
-      camera.lookAt(0, 0, 0);
-
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      container.appendChild(renderer.domElement);
-
-      const light = new THREE.DirectionalLight(0xffffff, 1);
-      light.position.set(0, 10, 5);
-      scene.add(light);
-      scene.add(new THREE.AmbientLight(0x404040));
-
-      // Pista
-      const roadGeo = new THREE.PlaneGeometry(6, 100);
-      const roadMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
-      const road = new THREE.Mesh(roadGeo, roadMat);
-      road.rotation.x = -Math.PI / 2;
-      scene.add(road);
-
-      // Vehículo
-      const carGeo = new THREE.BoxGeometry(1, 0.5, 2);
-      const carMat = new THREE.MeshPhongMaterial({ color: 0xf39c12 });
-      carMesh = new THREE.Mesh(carGeo, carMat);
-      carMesh.position.set(0, 0.25, 2);
-      scene.add(carMesh);
-
-      score = 0;
-      gameRunning = true;
-
-      window.onkeydown = (e) => {
-        if (!gameRunning) return;
-        if (e.key === 'ArrowLeft' && carMesh.position.x > -2) carMesh.position.x -= 2;
-        if (e.key === 'ArrowRight' && carMesh.position.x < 2) carMesh.position.x += 2;
-      };
-
-      animate();
-      setTimeout(finalizarPartida, 10000); // 10 segundos de carrera
-    }
-
-    function animate() {
-      if (!gameRunning) return;
-      animationFrameId = requestAnimationFrame(animate);
-      score += 5;
-      document.getElementById('score').innerText = score;
-      renderer.render(scene, camera);
-    }
-
-    // --- ACCIÓN 2: REGISTRAR RESULTADO DE LA PARTIDA ---
-    function finalizarPartida() {
-      gameRunning = false;
-      cancelAnimationFrame(animationFrameId);
-      document.getElementById('hud').style.display = 'none';
-
-      const gano = score >= 300;
-      const premio = gano ? "🏆 10% DESC. EN CAFETERÍA" : "Sin Premio";
-
-      const fetchUrl = `${SCRIPT_URL}?action=registrarResultado&codigo=${encodeURIComponent(activeCodigo)}&puntos=${score}&gano=${gano}&premio=${encodeURIComponent(premio)}&origen=${ORIGEN}`;
-
-      fetch(fetchUrl, {
-        method: 'GET',
-        redirect: 'follow'
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.action === "IMPRIMIR_DIRECTO") {
-          dispararImpresion(activeCodigo, premio);
-          mostrarResultado("¡FELICIDADES!", `¡Ganaste <strong>${premio}</strong>! Retirá tu vale por la impresora.`);
-        } else if (data.action === "MOSTRAR_INSTRUCCIONES_CANJE") {
-          mostrarResultado("¡GANASTE!", `Obtuviste <strong>${premio}</strong>. Pasá por la estación y escaneá tu ticket fiscal para imprimir tu vale.`);
-        } else {
-          mostrarResultado("FIN DEL JUEGO", "No alcanzaste el puntaje mínimo de premio. ¡Sigue intentando en tu próxima carga!");
-        }
-      })
-      .catch(err => {
-        mostrarResultado("ERROR", "No se pudo registrar el resultado de la carrera.");
-      });
-    }
-
-    function dispararImpresion(codigo, premio) {
-      document.getElementById('v-codigo').innerText = codigo;
-      document.getElementById('v-premio').innerText = premio;
-      document.getElementById('v-fecha').innerText = new Date().toLocaleString();
-      window.print();
-    }
-
-    function mostrarResultado(titulo, msg) {
-      document.getElementById('result-title').innerText = titulo;
-      document.getElementById('result-msg').innerHTML = msg;
-      document.getElementById('ui-result').style.display = 'flex';
-    }
-
-    function reiniciarPantalla() {
-      document.getElementById('ui-result').style.display = 'none';
-      document.getElementById('ui-welcome').style.display = 'flex';
-      document.getElementById('ticket-input').value = "";
-      document.getElementById('welcome-msg').innerText = ORIGEN === 'onsite' 
-        ? "ESTACIÓN: Escaneá tu ticket fiscal para jugar o imprimir tu premio ganado en casa." 
-        : "Escaneá tu código de barras o ingresalo para comenzar.";
-      document.getElementById('canvas-container').innerHTML = "";
-    }
-  </script>
-</body>
-</html>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <style>
-    body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; background: #111; color: #fff; }
-    #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
-    
-    /* Capas UI */
-    .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.85); text-align: center; }
-    .card { background: #222; border: 2px solid #f39c12; padding: 30px; border-radius: 12px; box-shadow: 0 0 20px rgba(243, 156, 18, 0.4); max-width: 480px; width: 90%; }
-    h1 { color: #f39c12; margin-top: 0; }
-    input[type="text"] { width: 80%; padding: 12px; margin: 15px 0; font-size: 1.2rem; text-align: center; border-radius: 6px; border: 1px solid #444; background: #333; color: #fff; text-transform: uppercase; }
-    button { background: #f39c12; color: #111; font-weight: bold; border: none; padding: 12px 25px; font-size: 1.1rem; border-radius: 6px; cursor: pointer; transition: 0.2s; }
-    button:hover { background: #e67e22; }
-    
-    #hud { position: absolute; top: 20px; left: 20px; z-index: 5; font-size: 1.5rem; font-weight: bold; color: #f39c12; display: none; text-shadow: 2px 2px 4px #000; }
-    
-    /* Formato de Impresión Térmica */
-    #print-voucher { display: none; }
-    @media print {
-      body * { visibility: hidden; }
-      #print-voucher, #print-voucher * { visibility: visible; }
-      #print-voucher { display: block !important; position: absolute; left: 0; top: 0; width: 80mm; font-family: monospace; color: #000; background: #fff; padding: 10px; font-size: 11pt; text-align: center; }
-      .v-line { border-bottom: 2px dashed #000; margin: 8px 0; }
-    }
-  </style>
-</head>
-<body>
-
-  <div id="hud">PUNTOS: <span id="score">0</span></div>
-  <div id="canvas-container"></div>
-
-  <!-- Pantalla de Inicio / Lector -->
-  <div id="ui-welcome" class="ui-layer">
-    <div class="card">
-      <h1>GNC TURBO RACER 3D</h1>
-      <p id="welcome-msg">Escaneá tu código de barras o ingresalo para comenzar.</p>
-      <input type="text" id="ticket-input" placeholder="INGRESAR CÓDIGO" autofocus autocomplete="off">
-      <br>
-      <button onclick="procesarIngresoManual()">JUGAR / VALIDAR</button>
-    </div>
-  </div>
-
-  <!-- Pantalla de Resultados -->
-  <div id="ui-result" class="ui-layer" style="display: none;">
-    <div class="card">
-      <h2 id="result-title"></h2>
-      <p id="result-msg"></p>
-      <button onclick="reiniciarPantalla()">VOLVER AL INICIO</button>
-    </div>
-  </div>
-
-  <!-- Comprobante Físico (Ticket Térmico) -->
-  <div id="print-voucher">
-    <h2>SHELL CONSTITUYENTES</h2>
-    <div class="v-line"></div>
-    <h3>¡VALE DE PREMIO!</h3>
-    <p><strong>PREMIO:</strong> <span id="v-premio"></span></p>
-    <p><strong>CÓDIGO:</strong> <span id="v-codigo"></span></p>
-    <p><strong>FECHA:</strong> <span id="v-fecha"></span></p>
-    <div class="v-line"></div>
-    <p>Presentá este vale en la caja para retirar tu beneficio.</p>
-  </div>
-
-  <script>
-    // URL de la Web App desplegada en Apps Script
-    const SCRIPT_URL = "URL_DE_TU_WEB_APP_AQUI"; 
-
-    // Detección de origen (Móvil/Casa vs Tótem Estación)
-    const urlParams = new URLSearchParams(window.location.search);
-    const ORIGEN = urlParams.get('mode') === 'onsite' ? 'onsite' : 'remote';
-    
-    let activeCodigo = "";
-    let gameRunning = false;
-    let score = 0;
-    let animationFrameId;
-
-    if (ORIGEN === 'onsite') {
-      document.getElementById('welcome-msg').innerText = "ESTACIÓN: Escaneá tu ticket fiscal para jugar o imprimir tu premio ganado en casa.";
-    }
-
-    // --- CAPTURA DE LECTOR DE CÓDIGO DE BARRAS USB ---
-    let barcodeBuffer = "";
-    let lastKeyTime = Date.now();
-
-    document.addEventListener('keydown', (e) => {
-      if (document.activeElement.id === 'ticket-input' && e.key !== 'Enter') return;
-
-      const currentTime = Date.now();
-      if (currentTime - lastKeyTime > 100) barcodeBuffer = "";
-      lastKeyTime = currentTime;
-
-      if (e.key === 'Enter') {
-        if (barcodeBuffer.length > 2) {
-          document.getElementById('ticket-input').value = barcodeBuffer;
-          validarCodigo(barcodeBuffer);
-          barcodeBuffer = "";
-        }
-      } else if (e.key.length === 1) {
-        barcodeBuffer += e.key;
-      }
-    });
-
-    function procesarIngresoManual() {
-      const code = document.getElementById('ticket-input').value.trim();
-      if (code) validarCodigo(code);
-    }
-
-    // --- ACCIÓN 1: VALIDAR CÓDIGO CON EL BACKEND ---
     function validarCodigo(code) {
       activeCodigo = code;
       document.getElementById('welcome-msg').innerText = "Validando código...";
+      document.getElementById('btn-submit').disabled = true;
 
       const fetchUrl = `${SCRIPT_URL}?action=validarCodigo&codigo=${encodeURIComponent(code)}&origen=${ORIGEN}`;
 
-      fetch(fetchUrl)
-        .then(res => res.json())
+      fetchJSONP(fetchUrl, 'cb_validar')
         .then(data => {
+          document.getElementById('btn-submit').disabled = false;
           if (data.status === "OK") {
             if (data.action === "JUGAR") {
               document.getElementById('ui-welcome').style.display = 'none';
@@ -400,12 +157,12 @@
           }
         })
         .catch(err => {
-          alert("Error de conexión con el servidor.");
+          document.getElementById('btn-submit').disabled = false;
+          alert(err.message || "Error de conexión con el servidor.");
           reiniciarPantalla();
         });
     }
 
-    // --- TRES.JS (MOTOR 3D EXISTENTE) ---
     let scene, camera, renderer, carMesh;
 
     function iniciarJuego3D() {
@@ -429,14 +186,12 @@
       scene.add(light);
       scene.add(new THREE.AmbientLight(0x404040));
 
-      // Pista
       const roadGeo = new THREE.PlaneGeometry(6, 100);
       const roadMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
       const road = new THREE.Mesh(roadGeo, roadMat);
       road.rotation.x = -Math.PI / 2;
       scene.add(road);
 
-      // Vehículo
       const carGeo = new THREE.BoxGeometry(1, 0.5, 2);
       const carMat = new THREE.MeshPhongMaterial({ color: 0xf39c12 });
       carMesh = new THREE.Mesh(carGeo, carMat);
@@ -453,7 +208,7 @@
       };
 
       animate();
-      setTimeout(finalizarPartida, 10000); // 10 segundos de carrera
+      setTimeout(finalizarPartida, 10000);
     }
 
     function animate() {
@@ -464,7 +219,6 @@
       renderer.render(scene, camera);
     }
 
-    // --- ACCIÓN 2: REGISTRAR RESULTADO DE LA PARTIDA ---
     function finalizarPartida() {
       gameRunning = false;
       cancelAnimationFrame(animationFrameId);
@@ -475,8 +229,7 @@
 
       const fetchUrl = `${SCRIPT_URL}?action=registrarResultado&codigo=${encodeURIComponent(activeCodigo)}&puntos=${score}&gano=${gano}&premio=${encodeURIComponent(premio)}&origen=${ORIGEN}`;
 
-      fetch(fetchUrl)
-        .then(res => res.json())
+      fetchJSONP(fetchUrl, 'cb_registrar')
         .then(data => {
           if (data.action === "IMPRIMIR_DIRECTO") {
             dispararImpresion(activeCodigo, premio);
@@ -488,7 +241,7 @@
           }
         })
         .catch(err => {
-          mostrarResultado("ERROR", "No se pudo registrar el resultado.");
+          mostrarResultado("ERROR", "No se pudo registrar el resultado de la carrera.");
         });
     }
 
@@ -506,6 +259,7 @@
     }
 
     function reiniciarPantalla() {
+      document.getElementById('btn-submit').disabled = false;
       document.getElementById('ui-result').style.display = 'none';
       document.getElementById('ui-welcome').style.display = 'flex';
       document.getElementById('ticket-input').value = "";
