@@ -2,325 +2,375 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GNC TURBO RACER 3D</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            overflow: hidden; 
+            background-color: #030408; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             user-select: none;
+            touch-action: none;
         }
 
-        body, html {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #050505;
-            color: #fff;
-        }
-
-        #canvas-container {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
-        }
-
-        /* --- OVERLAY DE ESCANEO DE CÓDIGO --- */
+        /* --- OVERLAY DE ESCANEO --- */
         #scan-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(5, 5, 5, 0.95);
-            z-index: 100;
+            position: fixed;
+            inset: 0;
+            background: rgba(3, 4, 8, 0.96);
+            z-index: 9999;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            color: white;
         }
 
-        .scan-box {
-            background: rgba(20, 20, 20, 0.8);
-            border: 2px solid #ff0055;
-            box-shadow: 0 0 20px rgba(255, 0, 85, 0.4);
+        .scan-card {
+            background: #0d111d;
+            border: 2px solid #00d2ff;
+            box-shadow: 0 0 25px rgba(0, 210, 255, 0.35);
             border-radius: 12px;
-            padding: 40px;
+            padding: 35px 45px;
             text-align: center;
-            max-width: 500px;
+            max-width: 450px;
             width: 90%;
         }
 
-        .scan-box h1 {
-            color: #ff9900;
-            font-size: 28px;
-            margin-bottom: 20px;
-            text-shadow: 0 0 10px rgba(255, 153, 0, 0.5);
+        .scan-card h2 {
+            color: #00d2ff;
+            font-size: 24px;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
 
-        .scan-box p {
-            color: #ccc;
+        .scan-card p {
+            color: #a0aec0;
             font-size: 14px;
             margin-bottom: 25px;
         }
 
-        .barcode-input {
-            width: 100%;
-            padding: 15px;
-            font-size: 20px;
-            text-align: center;
-            letter-spacing: 3px;
-            background: #111;
-            border: 1px solid #333;
-            color: #00d2ff;
-            border-radius: 6px;
-            outline: none;
-            margin-bottom: 15px;
-            text-transform: uppercase;
-        }
-
-        .barcode-input:focus {
-            border-color: #00d2ff;
-            box-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
-        }
-
-        .btn-action {
-            width: 100%;
-            padding: 15px;
-            font-size: 16px;
+        #barcode-input {
+            padding: 14px 20px;
+            font-size: 22px;
             font-weight: bold;
-            background: linear-gradient(45deg, #ff0055, #ff9900);
-            border: none;
-            color: white;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        .btn-action:hover {
-            transform: scale(1.02);
-            filter: brightness(1.2);
+            text-align: center;
+            border: 2px solid #00d2ff;
+            background: #161f30;
+            color: #ffffff;
+            border-radius: 8px;
+            width: 100%;
+            outline: none;
+            letter-spacing: 2px;
         }
 
         #scan-status {
-            margin-top: 15px;
-            font-size: 14px;
+            margin-top: 20px;
             font-weight: bold;
-            height: 20px;
+            font-size: 15px;
+            color: #ffcc00;
+            min-height: 22px;
         }
 
-        /* --- HUD DEL JUEGO --- */
-        #hud {
+        /* --- UI DEL JUEGO --- */
+        #ui-container {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 10;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
             display: flex;
-            gap: 20px;
-        }
-
-        .hud-card {
-            background: rgba(0, 0, 0, 0.6);
-            border-left: 4px solid #00d2ff;
-            padding: 10px 20px;
-            border-radius: 4px;
-            backdrop-filter: blur(5px);
-        }
-
-        .hud-card .label {
-            font-size: 10px;
-            color: #aaa;
-            text-transform: uppercase;
-        }
-
-        .hud-card .value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #fff;
-        }
-
-        /* --- PANTALLA FIN DE JUEGO / CANJE --- */
-        #game-over-screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 150;
-            display: none;
-            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+            width: 92%;
+            max-width: 480px;
             justify-content: center;
-            align-items: center;
         }
 
-        .go-box {
-            background: #111;
+        .ui-box {
+            background: rgba(10, 12, 24, 0.85);
             border: 2px solid #00d2ff;
-            border-radius: 12px;
-            padding: 30px;
-            text-align: center;
-            max-width: 450px;
-            width: 90%;
-            box-shadow: 0 0 30px rgba(0, 210, 255, 0.3);
-        }
-
-        .go-box h2 {
-            font-size: 26px;
-            color: #00d2ff;
-            margin-bottom: 15px;
-        }
-
-        /* COMPROBANTE DE CANJE ESTILO TICKET CAJA */
-        #receipt {
-            background: #fff;
-            color: #000;
-            font-family: 'Courier New', Courier, monospace;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 2px;
-            text-align: left;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            font-size: 12px;
-            line-height: 1.4;
-        }
-
-        #receipt .r-header {
-            text-align: center;
+            border-radius: 8px;
+            padding: 6px 10px;
+            color: #ffffff;
             font-weight: bold;
-            border-bottom: 1px dashed #000;
-            padding-bottom: 8px;
-            margin-bottom: 8px;
+            font-size: 13px;
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+            text-align: center;
+            flex: 1;
         }
 
-        #receipt .r-line {
+        .diff-tag { color: #ffcc00; display: block; font-size: 11px; }
+
+        #warning-banner {
+            position: absolute;
+            top: 68px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 51, 0, 0.9);
+            color: #ffffff;
+            border: 3px solid #ffff00;
+            border-radius: 10px;
+            padding: 10px 22px;
+            font-weight: 900;
+            font-size: 16px;
+            display: none;
+            z-index: 150;
+            animation: blink 0.4s infinite alternate;
+            text-align: center;
+        }
+
+        @keyframes blink {
+            from { opacity: 1; transform: translateX(-50%) scale(1); }
+            to { opacity: 0.25; transform: translateX(-50%) scale(0.96); }
+        }
+
+        #controls-container {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
             display: flex;
             justify-content: space-between;
+            padding: 0 20px;
+            z-index: 100;
+            pointer-events: none;
         }
 
-        #receipt .r-footer {
-            border-top: 1px dashed #000;
-            padding-top: 8px;
-            margin-top: 8px;
-            text-align: center;
-            font-size: 10px;
+        .btn-group { display: flex; gap: 12px; pointer-events: auto; }
+
+        .control-btn {
+            width: 58px; height: 58px;
+            background: rgba(0, 210, 255, 0.15);
+            border: 2px solid #00d2ff;
+            border-radius: 50%;
+            color: white; font-size: 20px;
+            display: flex; justify-content: center; align-items: center;
+            backdrop-filter: blur(5px);
+            cursor: pointer;
         }
 
-        /* CONFIGURACIÓN DE IMPRESIÓN TÉRMICA */
+        #audio-btn {
+            position: absolute; top: 12px; right: 12px; z-index: 101;
+            background: rgba(0, 210, 255, 0.2); border: 1px solid #00d2ff;
+            color: white; border-radius: 5px; padding: 6px 10px; font-size: 12px;
+            cursor: pointer;
+        }
+
+        /* --- PANTALLA GAME OVER / CANJE --- */
+        #game-over-screen {
+            position: absolute; inset: 0;
+            background: rgba(3, 4, 8, 0.95);
+            display: none; flex-direction: column;
+            justify-content: center; align-items: center;
+            z-index: 200; color: white;
+            padding: 20px;
+        }
+
+        #game-over-screen h1 { font-size: 32px; color: #ff3355; margin-bottom: 10px; text-transform: uppercase; }
+
+        #restart-btn {
+            margin-top: 15px; padding: 12px 30px;
+            font-size: 16px; font-weight: bold;
+            background: #ffcc00; color: #000; border: none;
+            border-radius: 25px; cursor: pointer;
+        }
+
+        /* --- COMPROBANTE DE PREMIO (OCULTO EN PANTALLA) --- */
+        #print-ticket {
+            display: none;
+        }
+
+        /* --- REGLAS EXCLUSIVAS PARA IMPRESORA TÉRMICA (80mm / 72mm imprimibles) --- */
         @media print {
             body * {
                 visibility: hidden;
             }
-            #receipt, #receipt * {
+
+            #print-ticket, #print-ticket * {
                 visibility: visible;
             }
-            #receipt {
+
+            #print-ticket {
+                display: block !important;
                 position: absolute;
                 left: 0;
                 top: 0;
-                width: 100%;
+                width: 72mm;
                 margin: 0;
-                padding: 10px;
-                box-shadow: none;
+                padding: 5px;
+                background: #ffffff !important;
+                color: #000000 !important;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 11px;
+                text-align: center;
+            }
+
+            .ticket-header {
+                font-weight: bold;
+                font-size: 15px;
+                text-transform: uppercase;
+                border-bottom: 2px dashed #000;
+                padding-bottom: 8px;
+                margin-bottom: 8px;
+            }
+
+            .ticket-body {
+                margin: 8px 0;
+                text-align: left;
+            }
+
+            .ticket-row {
+                display: flex;
+                justify-content: space-between;
+                margin: 3px 0;
+                font-size: 11px;
+            }
+
+            .ticket-prize {
+                border: 2px solid #000;
+                padding: 8px;
+                margin: 10px 0;
+                text-align: center;
+                font-weight: bold;
+                font-size: 13px;
+                text-transform: uppercase;
+            }
+
+            .ticket-qr {
+                margin: 10px 0;
+                display: flex;
+                justify-content: center;
+            }
+
+            .ticket-footer {
+                border-top: 1px dashed #000;
+                padding-top: 8px;
+                font-size: 10px;
+                text-align: center;
             }
         }
     </style>
-    <!-- Three.js CDN -->
+    <!-- Librerías Externas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
-    <div id="canvas-container"></div>
-
-    <!-- SCANNER OVERLAY -->
+    <!-- OVERLAY ESCÁNER -->
     <div id="scan-overlay">
-        <div class="scan-box">
-            <h1>GNC TURBO RACER 3D</h1>
-            <p>Escanee o ingrese el código de ticket para ingresar al sistema:</p>
-            <input type="text" id="barcode-input" class="barcode-input" placeholder="SEL-XXXXX" autofocus autocomplete="off">
-            <button id="btn-submit" class="btn-action">JUGAR / VALIDAR</button>
-            <div id="scan-status"></div>
+        <div class="scan-card">
+            <h2>EXTRA GNC TURBO RACER</h2>
+            <p>ESCANEE EL CÓDIGO DE SU TICKET PARA JUGAR</p>
+            <input type="text" id="barcode-input" placeholder="Aguardando lectura..." autofocus autocomplete="off">
+            <div id="scan-status">Aguardando código...</div>
         </div>
     </div>
 
-    <!-- HUD -->
-    <div id="hud">
-        <div class="hud-card">
-            <div class="label">Puntos</div>
-            <div class="value" id="score-val">0</div>
+    <button id="audio-btn" onclick="toggleAudio()">AUDIO</button>
+
+    <!-- UI JUEGO -->
+    <div id="ui-container">
+        <div class="ui-box">ETAPA: <span id="stage-val">1</span><span id="diff-val" class="diff-tag">FÁCIL</span></div>
+        <div class="ui-box">PTS: <span id="score-val">0</span></div>
+        <div class="ui-box">VIDAS: <span id="lives-val"></span></div>
+    </div>
+
+    <div id="warning-banner">¡PRECAUCIÓN! ANIMALES EN RUTA</div>
+
+    <div id="controls-container">
+        <div class="btn-group">
+            <div class="control-btn" id="btn-left">◄</div>
+            <div class="control-btn" id="btn-right">►</div>
         </div>
-        <div class="hud-card">
-            <div class="label">Presión GNC</div>
-            <div class="value" id="turbo-val">100%</div>
+        <div class="btn-group">
+            <div class="control-btn" id="btn-brake">FRENO</div>
+            <div class="control-btn" id="btn-boost">▲</div>
         </div>
     </div>
 
-    <!-- GAME OVER / CANJE SCREEN -->
+    <!-- PANTALLA GAME OVER / CANJE -->
     <div id="game-over-screen">
-        <div class="go-box">
-            <h2 id="go-title">FIN DE LA CARRERA</h2>
-            <div id="final-score" style="font-size: 18px; margin-bottom: 10px;">Puntaje Final: <span id="go-score" style="color: #00ff88; font-weight: bold;">0</span></div>
-            
-            <div id="prize-result-box"></div>
+        <h1 id="go-title">¡GAME OVER!</h1>
+        <p id="final-score" style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">PUNTUACIÓN FINAL: 0 PTS</p>
+        
+        <div id="prize-result-box" style="margin: 15px 0; text-align: center; max-width: 380px; width: 100%;"></div>
 
-            <button class="btn-action" style="margin-top: 10px;" onclick="location.reload();">VOLVER AL INICIO</button>
+        <button id="restart-btn" onclick="resetGame()">NUEVO TICKET</button>
+    </div>
+
+    <!-- PLANTILLA COMPROBANTE DE PREMIO (IMPRESIÓN FÍSICA) -->
+    <div id="print-ticket">
+        <div class="ticket-header">
+            EXTRA GNC<br>
+            <span style="font-size: 10px;">ESTACIÓN DE SERVICIO</span>
+        </div>
+        
+        <div><strong id="t-titulo-comprobante">¡COMPROBANTE DE PREMIO!</strong></div>
+        
+        <div class="ticket-body">
+            <div class="ticket-row" id="row-fecha-juego"><span>FECHA JUEGO:</span> <span id="t-fecha-juego">--/--/---- --:--</span></div>
+            <div class="ticket-row" id="row-fecha-canje" style="display: none;"><span>FECHA CANJE:</span> <span id="t-fecha-canje">--/--/---- --:--</span></div>
+            <div class="ticket-row"><span>TICKET ORIGEN:</span> <span id="t-codigo">------</span></div>
+            <div class="ticket-row"><span>PUNTAJE:</span> <span id="t-puntos">0 PTS</span></div>
+        </div>
+
+        <div class="ticket-prize">
+            <span id="t-premio-nombre">CONSULTANDO PREMIO...</span>
+        </div>
+
+        <div class="ticket-qr" id="qrcode-container"></div>
+
+        <div class="ticket-footer">
+            Presente este comprobante en caja o Shop para canjear su premio.<br>
+            <em>¡Gracias por elegirnos!</em>
         </div>
     </div>
 
     <script>
-        // CONFIGURACIÓN WEB APP URL ACTIVA
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUe4u1ViXI-xj-PKUbVxFaCz1e8AKmVa5Ckh2haFyqu-EZL5hf7O0TrSIalZNdrayv3w/exec"; 
-
+        // --- CONFIGURACIÓN Y APPS SCRIPT ---
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUe4u1ViXI-xj-PKUbVxFaCz1e8AKmVa5Ckh2haFyqu-EZL5hf7O0TrSIalZNdrayv3w/exec";
+        const PUNTAJE_MINIMO_PREMIO = 150; 
         let activeTicketCode = "";
-        let gameActive = false;
-        let score = 0;
 
         const barcodeInput = document.getElementById('barcode-input');
-        const btnSubmit = document.getElementById('btn-submit');
         const scanStatus = document.getElementById('scan-status');
         const scanOverlay = document.getElementById('scan-overlay');
 
-        // FUNCIÓN PARA OBTENER FECHA Y HORA ACTUAL FORMATEADA
-        function getFechaHoraActual() {
-            const ahora = new Date();
-            const dia = String(ahora.getDate()).padStart(2, '0');
-            const mes = String(ahora.getMonth() + 1).padStart(2, '0');
-            const anio = ahora.getFullYear();
-            const horas = String(ahora.getHours()).padStart(2, '0');
-            const minutos = String(ahora.getMinutes()).padStart(2, '0');
-            const segundos = String(ahora.getSeconds()).padStart(2, '0');
-            return `${dia}/${mes}/${anio} ${horas}:${minutos}:${segundos}`;
-        }
-
-        // EVENTOS DE ENTRADA DE CÓDIGO
-        btnSubmit.addEventListener('click', () => {
-            let code = barcodeInput.value.trim();
-            if (code) validarCodigoTicket(code);
+        document.addEventListener('click', () => {
+            if (scanOverlay.style.display !== 'none') barcodeInput.focus();
         });
 
-        barcodeInput.addEventListener('keypress', (e) => {
+        function limpiarCodigoLector(input) {
+            return input.trim().toUpperCase().replace(/'/g, "-").replace(/\?/g, "-").replace(/_/g, "-");
+        }
+
+        function getFechaHoraFormateada(d = new Date()) {
+            const fechaStr = d.toLocaleDateString('es-AR');
+            const horaStr = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            return `${fechaStr} ${horaStr}`;
+        }
+
+        barcodeInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                let code = barcodeInput.value.trim();
-                if (code) validarCodigoTicket(code);
+                e.preventDefault();
+                const codigoLimpio = limpiarCodigoLector(barcodeInput.value);
+                if (codigoLimpio !== "") {
+                    barcodeInput.value = codigoLimpio;
+                    validarCodigoTicket(codigoLimpio);
+                }
             }
         });
 
-        // VALIDACIÓN DUAL (INICIO JUEGO / CANJE)
         function validarCodigoTicket(codigo) {
             scanStatus.style.color = "#ffcc00";
-            scanStatus.innerText = "Validando código...";
+            scanStatus.innerText = "Verificando ticket...";
             barcodeInput.disabled = true;
 
             fetch(`${WEB_APP_URL}?action=validarCodigo&codigo=${encodeURIComponent(codigo)}`, { method: "GET", redirect: "follow" })
             .then(res => res.json())
             .then(data => {
-                if (data.status === "DISPONIBLE" || data.status === "OK") {
-                    // TICKET NUEVO -> ARRANCA EL JUEGO 3D
+                if (data.status === "OK") {
                     scanStatus.style.color = "#00ff88";
                     scanStatus.innerText = "¡CÓDIGO VÁLIDO! INICIANDO...";
                     activeTicketCode = codigo;
@@ -328,186 +378,566 @@
                         scanOverlay.style.display = 'none';
                         barcodeInput.value = "";
                         barcodeInput.disabled = false;
-                        startGame();
+                        initAudio();
                     }, 800);
                 } else if (data.status === "JUGADO") {
-                    // TICKET YA JUGADO -> SE OCULTA SCANNER Y MUESTRA CANJE CON OPCIÓN DE IMPRESIÓN
+                    // MUESTRA DE CANJE DIRECTO EN CAJA SI EL TICKET YA FUE JUGADO
                     scanOverlay.style.display = 'none';
-                    
+                    activeTicketCode = codigo;
+
                     const premioTexto = data.premio || "Consulte en tabla";
                     const puntosTexto = data.puntos ? `${data.puntos} PTS` : "N/A";
-                    const fechaCanje = getFechaHoraActual();
-                    const fechaJuego = data.fechaJuego || "Registrado";
+                    const fechaJuegoTexto = data.fechaJuego || "Registrado";
+                    const fechaCanjeTexto = getFechaHoraFormateada();
+
+                    document.getElementById('go-title').innerText = "VERIFICACIÓN DE CANJE";
+                    document.getElementById('final-score').style.display = 'none';
 
                     document.getElementById('prize-result-box').innerHTML = `
-                        <div id="receipt">
-                            <div class="r-header">
-                                *** SHELL GNC - VERIFICACIÓN ***<br>
-                                CANJE DE PREMIO
-                            </div>
-                            <div class="r-line"><span>FECHA CANJE:</span> <strong>${fechaCanje}</strong></div>
-                            <div class="r-line"><span>FECHA JUEGO:</span> <strong>${fechaJuego}</strong></div>
-                            <div class="r-line"><span>TICKET:</span> <strong>${codigo}</strong></div>
-                            <div class="r-line"><span>ESTADO:</span> <strong>JUGADO</strong></div>
-                            <div class="r-line"><span>PUNTOS:</span> <strong>${puntosTexto}</strong></div>
-                            <hr style="border: 0.5px dashed #000; margin: 5px 0;">
-                            <div class="r-line"><span>PREMIO:</span></div>
-                            <div style="font-size: 15px; font-weight: bold; text-align: center; margin: 8px 0; color: #000;">
-                                ${premioTexto}
-                            </div>
-                            <div class="r-footer">
-                                Presente este ticket en caja<br>
-                                ¡Gracias por su visita!
-                            </div>
+                        <div style="background: rgba(0, 210, 255, 0.1); border: 2px solid #00d2ff; border-radius: 8px; padding: 15px; text-align: left; font-size: 13px;">
+                            <p style="color: #00d2ff; font-weight: bold; text-align: center; font-size: 16px; margin-bottom: 10px;">DETALLE DE CANJE</p>
+                            <p style="margin: 4px 0;"><strong>TICKET:</strong> ${codigo}</p>
+                            <p style="margin: 4px 0;"><strong>FECHA JUEGO:</strong> ${fechaJuegoTexto}</p>
+                            <p style="margin: 4px 0;"><strong>FECHA CANJE:</strong> ${fechaCanjeTexto}</p>
+                            <p style="margin: 4px 0;"><strong>PUNTOS:</strong> ${puntosTexto}</p>
+                            <hr style="border: 0.5px solid rgba(0,210,255,0.3); margin: 8px 0;">
+                            <p style="color: #ffcc00; font-size: 15px; font-weight: bold; text-align: center; margin-top: 5px;">${premioTexto}</p>
                         </div>
-                        <button class="btn-action" style="background: #00d2ff; color: #000; margin-bottom: 10px;" onclick="window.print();">🖨️ IMPRIMIR COMPROBANTE</button>
+                        <button onclick="imprimirTicketPremio('${premioTexto}', '${fechaJuegoTexto}', '${fechaCanjeTexto}', '${puntosTexto}')" style="margin-top: 12px; width: 100%; padding: 10px; background: #00d2ff; color: #000; font-weight: bold; border: none; border-radius: 6px; cursor: pointer;">
+                            🖨️ IMPRIMIR COMPROBANTE DE CANJE
+                        </button>
                     `;
 
                     document.getElementById('game-over-screen').style.display = 'flex';
-                    document.getElementById('go-title').innerText = "CANJE DE PREMIO";
-                    document.getElementById('final-score').style.display = 'none';
-
                     barcodeInput.value = "";
                     barcodeInput.disabled = false;
-                } else if (data.status === "ENTREGADO") {
-                    scanStatus.style.color = "#ff3355";
-                    scanStatus.innerText = "ESTE PREMIO YA FUE ENTREGADO EN CAJA";
-                    setTimeout(() => { barcodeInput.value = ""; barcodeInput.disabled = false; barcodeInput.focus(); }, 2000);
                 } else {
                     scanStatus.style.color = "#ff3355";
-                    scanStatus.innerText = data.message || "Código inválido";
-                    setTimeout(() => { barcodeInput.value = ""; barcodeInput.disabled = false; barcodeInput.focus(); }, 1800);
+                    scanStatus.innerText = data.message || "Código inválido o entregado";
+                    setTimeout(() => { barcodeInput.value = ""; barcodeInput.disabled = false; barcodeInput.focus(); }, 1500);
                 }
             })
             .catch(() => {
                 scanStatus.style.color = "#ff3355";
                 scanStatus.innerText = "Error de conexión con la base de datos";
-                setTimeout(() => { barcodeInput.value = ""; barcodeInput.disabled = false; barcodeInput.focus(); }, 1800);
+                setTimeout(() => { barcodeInput.value = ""; barcodeInput.disabled = false; barcodeInput.focus(); }, 1500);
             });
         }
 
-        // MOTOR THREE.JS Y LÓGICA DEL JUEGO
-        let scene, camera, renderer, playerBox;
-        let laneIndex = 1;
-        const lanes = [-2.5, 0, 2.5];
-
-        function init3D() {
-            const container = document.getElementById('canvas-container');
-            scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x050505, 0.03);
-
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 3, 7);
-            camera.lookAt(0, 1, 0);
-
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            container.appendChild(renderer.domElement);
-
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-
-            const dirLight = new THREE.DirectionalLight(0xff0055, 1);
-            dirLight.position.set(5, 10, 7);
-            scene.add(dirLight);
-
-            const trackGeo = new THREE.PlaneGeometry(10, 200);
-            const trackMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-            const track = new THREE.Mesh(trackGeo, trackMat);
-            track.rotation.x = -Math.PI / 2;
-            track.position.z = -80;
-            scene.add(track);
-
-            const playerGeo = new THREE.BoxGeometry(1.2, 0.6, 2.5);
-            const playerMat = new THREE.MeshPhongMaterial({ color: 0x00d2ff, emissive: 0x003366 });
-            playerBox = new THREE.Mesh(playerGeo, playerMat);
-            playerBox.position.set(lanes[laneIndex], 0.3, 0);
-            scene.add(playerBox);
-
-            window.addEventListener('resize', onWindowResize);
-            window.addEventListener('keydown', handleControls);
-        }
-
-        function handleControls(e) {
-            if (!gameActive) return;
-            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
-                if (laneIndex > 0) laneIndex--;
-            } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
-                if (laneIndex < 2) laneIndex++;
+        // --- MANEJO DE IMPRESIÓN DEL COMPROBANTE ---
+        function imprimirTicketPremio(premioTexto, fechaJuego, fechaCanje = null, puntosPersonalizados = null) {
+            document.getElementById('t-titulo-comprobante').innerText = fechaCanje ? "¡VERIFICACIÓN DE CANJE!" : "¡COMPROBANTE DE PREMIO!";
+            document.getElementById('t-fecha-juego').innerText = fechaJuego;
+            
+            const rowCanje = document.getElementById('row-fecha-canje');
+            if (fechaCanje) {
+                document.getElementById('t-fecha-canje').innerText = fechaCanje;
+                rowCanje.style.display = 'flex';
+            } else {
+                rowCanje.style.display = 'none';
             }
+
+            document.getElementById('t-codigo').innerText = activeTicketCode || "N/A";
+            document.getElementById('t-puntos').innerText = puntosPersonalizados || `${score} PTS`;
+            document.getElementById('t-premio-nombre').innerText = premioTexto;
+
+            const qrContainer = document.getElementById('qrcode-container');
+            qrContainer.innerHTML = "";
+            
+            new QRCode(qrContainer, {
+                text: `VALIDAR|TK:${activeTicketCode}|PTS:${puntosPersonalizados || score}|PREMIO:${premioTexto}`,
+                width: 90,
+                height: 90,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+
+            setTimeout(() => {
+                window.print();
+            }, 300);
         }
 
-        function startGame() {
-            init3D();
-            gameActive = true;
-            score = 0;
-            animate();
-
-            const scoreInterval = setInterval(() => {
-                if (!gameActive) {
-                    clearInterval(scoreInterval);
-                    return;
-                }
-                score += 10;
-                document.getElementById('score-val').innerText = score;
-
-                if (score >= 200) {
-                    gameActive = false;
-                    clearInterval(scoreInterval);
-                    finalizarPartida();
-                }
-            }, 500);
+        // --- GAME LOGIC & THREE.JS ---
+        function createTextTexture(title, subtitle, bgColor = '#f1c40f') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 384;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = bgColor; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#000000'; ctx.lineWidth = 16;
+            ctx.strokeRect(12, 12, canvas.width - 24, canvas.height - 24);
+            ctx.fillStyle = '#000000'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.font = '900 48px Arial, sans-serif'; ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 40);
+            ctx.font = 'bold 36px Arial, sans-serif'; ctx.fillText(subtitle, canvas.width / 2, canvas.height / 2 + 40);
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
         }
+
+        const extraGncTexture = createTextTexture('EXTRA', 'GNC', '#ffcc00');
+        const signAnimalTexture = createTextTexture('PRECAUCIÓN', 'ANIMALES', '#f39c12');
+        const signPedestrianTexture = createTextTexture('PRECAUCIÓN', 'PEATONES', '#f39c12');
+
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null, audioEnabled = true, engineOsc = null, engineGain = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioCtx();
+                startEngineSound();
+                startBackgroundMusic();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            document.getElementById('audio-btn').innerText = audioEnabled ? "AUDIO" : "MUTED";
+            if (audioCtx) audioEnabled ? audioCtx.resume() : audioCtx.suspend();
+        }
+
+        function startEngineSound() {
+            if (!audioCtx) return;
+            engineOsc = audioCtx.createOscillator(); engineGain = audioCtx.createGain();
+            engineOsc.type = 'sawtooth'; engineOsc.frequency.setValueAtTime(60, audioCtx.currentTime);
+            const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(300, audioCtx.currentTime);
+            engineGain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            engineOsc.connect(filter); filter.connect(engineGain); engineGain.connect(audioCtx.destination);
+            engineOsc.start();
+        }
+
+        function updateEnginePitch(speedRatio) {
+            if (!engineOsc || !audioCtx) return;
+            engineOsc.frequency.setTargetAtTime(50 + speedRatio * 120, audioCtx.currentTime, 0.1);
+        }
+
+        function playBrakeSound() {
+            if (!audioCtx || !audioEnabled) return;
+            const now = audioCtx.currentTime, osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(700, now); osc.frequency.exponentialRampToValueAtTime(200, now + 0.3);
+            gain.gain.setValueAtTime(0.12, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.3);
+        }
+
+        function playAnimalSound() {
+            if (!audioCtx || !audioEnabled) return;
+            const now = audioCtx.currentTime, osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(130, now);
+            osc.frequency.linearRampToValueAtTime(110, now + 0.4); osc.frequency.linearRampToValueAtTime(140, now + 0.8);
+            gain.gain.setValueAtTime(0.15, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.8);
+        }
+
+        function playCrashSound() {
+            if (!audioCtx || !audioEnabled) return;
+            const now = audioCtx.currentTime, osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.type = 'square'; osc.frequency.setValueAtTime(100, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.5);
+            gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.5);
+        }
+
+        function startBackgroundMusic() {
+            if (!audioCtx) return;
+            const notes = [110, 130.81, 146.83, 164.81, 146.83, 130.81]; let step = 0;
+            setInterval(() => {
+                if (!audioEnabled || !audioCtx || audioCtx.state !== 'running' || isGameOver) return;
+                const now = audioCtx.currentTime, osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+                osc.type = 'sine'; osc.frequency.setValueAtTime(notes[step % notes.length], now);
+                gain.gain.setValueAtTime(0.03, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.25);
+                step++;
+            }, 300);
+        }
+
+        const scene = new THREE.Scene();
+        const dayColor = new THREE.Color(0x87ceeb), sunsetColor = new THREE.Color(0xff6622), nightColor = new THREE.Color(0x050711);
+        scene.background = dayColor.clone(); scene.fog = new THREE.FogExp2(dayColor.clone(), 0.007);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); scene.add(ambientLight);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.2); sunLight.position.set(20, 40, -250); sunLight.castShadow = true; scene.add(sunLight);
+
+        const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(12, 32, 32), new THREE.MeshBasicMaterial({ color: 0xfff0aa }));
+        sunMesh.position.set(0, 35, -300); scene.add(sunMesh);
+
+        const cloudsGroup = new THREE.Group();
+        const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, transparent: true, opacity: 0.85 });
+        function createCloud() {
+            const cloud = new THREE.Group(), geo = new THREE.DodecahedronGeometry(6, 1);
+            for (let i = 0; i < 5; i++) {
+                const part = new THREE.Mesh(geo, cloudMat);
+                part.position.set((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 8);
+                part.scale.setScalar(0.6 + Math.random() * 0.8); cloud.add(part);
+            }
+            return cloud;
+        }
+        for (let i = 0; i < 14; i++) {
+            const c = createCloud(); c.position.set((Math.random() - 0.5) * 180, 30 + Math.random() * 20, -Math.random() * 350); cloudsGroup.add(c);
+        }
+        scene.add(cloudsGroup);
+
+        const terrainMat = new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: 0.9 });
+        const terrain = new THREE.Mesh(new THREE.PlaneGeometry(350, 1000), terrainMat);
+        terrain.rotation.x = -Math.PI / 2; terrain.position.set(0, -0.05, -450); terrain.receiveShadow = true; scene.add(terrain);
+
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(12, 1000), new THREE.MeshStandardMaterial({ color: 0x22252a, roughness: 0.6 }));
+        road.rotation.x = -Math.PI / 2; road.position.z = -450; road.receiveShadow = true; scene.add(road);
+
+        const lineMat = new THREE.MeshBasicMaterial({ color: 0x00d2ff });
+        const leftLine = new THREE.Mesh(new THREE.PlaneGeometry(0.25, 1000), lineMat);
+        leftLine.rotation.x = -Math.PI / 2; leftLine.position.set(-5.9, 0.02, -450); scene.add(leftLine);
+        const rightLine = leftLine.clone(); rightLine.position.x = 5.9; scene.add(rightLine);
+
+        const mountainsGroup = new THREE.Group();
+        const mountainMat = new THREE.MeshStandardMaterial({ color: 0x1f3a52, roughness: 1.0 });
+        for (let i = -6; i <= 6; i++) {
+            const m = new THREE.Mesh(new THREE.ConeGeometry(35 + Math.random() * 20, 45 + Math.random() * 30, 5), mountainMat);
+            m.position.set(i * 32, 15, -340); mountainsGroup.add(m);
+        }
+        scene.add(mountainsGroup);
+
+        const playerGroup = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.4, 2.6), new THREE.MeshStandardMaterial({ color: 0x0088ff, metalness: 0.8, roughness: 0.2 }));
+        body.position.y = 0.35; body.castShadow = true; playerGroup.add(body);
+
+        const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.38, 1.2), new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.9, roughness: 0.05 }));
+        cabin.position.set(0, 0.7, -0.1); cabin.castShadow = true; playerGroup.add(cabin);
+
+        const sign = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.3, 0.15), new THREE.MeshStandardMaterial({ map: extraGncTexture, roughness: 0.3 }));
+        sign.position.set(0, 1.0, -0.1); sign.castShadow = true; playerGroup.add(sign);
+
+        const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.22, 20); wheelGeo.rotateZ(Math.PI / 2);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+        [[-0.75, 0.3, 0.8], [0.75, 0.3, 0.8], [-0.75, 0.3, -0.8], [0.75, 0.3, -0.8]].forEach(pos => {
+            const w = new THREE.Mesh(wheelGeo, wheelMat); w.position.set(...pos); w.castShadow = true; playerGroup.add(w);
+        });
+
+        const headlightL = new THREE.SpotLight(0xffffff, 0, 35, Math.PI / 5, 0.4);
+        headlightL.position.set(-0.5, 0.4, -1.3); headlightL.target.position.set(-0.5, 0, -12); playerGroup.add(headlightL); playerGroup.add(headlightL.target);
+        const headlightR = headlightL.clone(); headlightR.position.x = 0.5; headlightR.target.position.x = 0.5; playerGroup.add(headlightR); playerGroup.add(headlightR.target);
+
+        scene.add(playerGroup); playerGroup.add(camera);
+
+        function updateCameraFOV() {
+            if (window.innerWidth / window.innerHeight < 1) { camera.fov = 75; camera.position.set(0, 4.2, 6.5); }
+            else { camera.fov = 55; camera.position.set(0, 3.2, 5.5); }
+            camera.lookAt(0, 0.4, -5); camera.updateProjectionMatrix();
+        }
+        updateCameraFOV();
+
+        function createTree() {
+            const group = new THREE.Group();
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.35, 2.2), new THREE.MeshStandardMaterial({ color: 0x5a3d28, roughness: 0.9 }));
+            trunk.position.y = 1.1; trunk.castShadow = true; group.add(trunk);
+            const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.6, 3.8, 8), new THREE.MeshStandardMaterial({ color: 0x1e5631, roughness: 0.6 }));
+            leaves.position.y = 3.2; leaves.castShadow = true; group.add(leaves);
+            return group;
+        }
+
+        function createTrafficSign(type) {
+            const group = new THREE.Group(), poleMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.7 });
+            const p1 = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.8), poleMat); p1.position.set(-0.6, 1.9, 0); group.add(p1);
+            const p2 = p1.clone(); p2.position.x = 0.6; group.add(p2);
+            const board = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.6, 0.1), new THREE.MeshStandardMaterial({ map: type === 'animal' ? signAnimalTexture : signPedestrianTexture, roughness: 0.2 }));
+            board.position.set(0, 3.0, 0); group.add(board);
+            return group;
+        }
+
+        function createPedestrian() {
+            const group = new THREE.Group();
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.65), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
+            torso.position.y = 0.75; group.add(torso);
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.14), new THREE.MeshStandardMaterial({ color: 0xffdbac }));
+            head.position.y = 1.2; group.add(head);
+            const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.55), new THREE.MeshStandardMaterial({ color: 0x1a202c }));
+            leftLeg.position.set(-0.1, 0.28, 0); group.add(leftLeg);
+            const rightLeg = leftLeg.clone(); rightLeg.position.x = 0.1; group.add(rightLeg);
+            group.userData = { type: 'pedestrian', leftLeg, rightLeg, direction: Math.random() > 0.5 ? 1 : -1, walkSpeed: 0.04 + Math.random() * 0.02, animTimer: Math.random() * 10 };
+            group.rotation.y = group.userData.direction === 1 ? Math.PI / 2 : -Math.PI / 2;
+            return group;
+        }
+
+        function createAnimal() {
+            const group = new THREE.Group();
+            const cBody = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.75, 1.5), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 }));
+            cBody.position.y = 0.7; group.add(cBody);
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.5, 0.55), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 }));
+            head.position.set(0, 1.0, -0.9); group.add(head);
+            const legGeo = new THREE.BoxGeometry(0.18, 0.45, 0.18), legMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+            [[-0.32, 0.22, 0.45], [0.32, 0.22, 0.45], [-0.32, 0.22, -0.45], [0.32, 0.22, -0.45]].forEach(pos => {
+                const leg = new THREE.Mesh(legGeo, legMat); leg.position.set(...pos); group.add(leg);
+            });
+            group.userData = { type: 'animal', direction: Math.random() > 0.5 ? 1 : -1, walkSpeed: 0.025 + Math.random() * 0.02 };
+            group.rotation.y = group.userData.direction === 1 ? Math.PI / 2 : -Math.PI / 2;
+            return group;
+        }
+
+        function createCone() {
+            const group = new THREE.Group();
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.9, 16), new THREE.MeshStandardMaterial({ color: 0xff5500 }));
+            cone.position.y = 0.45; group.add(cone);
+            return group;
+        }
+
+        function createBlock() {
+            const block = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.8, 1.0), new THREE.MeshStandardMaterial({ color: 0x777788 }));
+            block.position.y = 0.4;
+            return block;
+        }
+
+        let currentLane = 0; const lanePositions = [-3.6, 0, 3.6];
+        let score = 0, stage = 1, lives = 3, baseSpeed = 0.45, currentSpeed = baseSpeed, spawnInterval = 1.3, isGameOver = false;
+        const obstacles = [], scenery = [], collectibles = [];
+        const biomes = [{ terrain: 0x2e8b57 }, { terrain: 0xd2b48c }, { terrain: 0xe5e8e8 }];
+        let currentBiomeIndex = 0;
+
+        function showWarningHUD(message) {
+            const banner = document.getElementById('warning-banner');
+            banner.innerText = message; banner.style.display = 'block';
+            setTimeout(() => { banner.style.display = 'none'; }, 2600);
+        }
+
+        function updateDifficultyAndEnvironment() {
+            let diffText = "FÁCIL";
+            if (score < 100) { stage = 1; diffText = "FÁCIL"; baseSpeed = 0.45; spawnInterval = 1.2; }
+            else if (score < 250) { stage = 2; diffText = "MEDIO"; baseSpeed = 0.6; spawnInterval = 0.95; }
+            else { stage = 3; diffText = "DIFÍCIL"; baseSpeed = 0.75; spawnInterval = 0.7; }
+
+            const biomeIdx = Math.floor(score / 120) % biomes.length;
+            if (biomeIdx !== currentBiomeIndex) { currentBiomeIndex = biomeIdx; terrainMat.color.setHex(biomes[currentBiomeIndex].terrain); }
+
+            const targetColor = new THREE.Color();
+            let sunY = 35, sunIntensity = 1.2, headlightIntensity = 0;
+
+            if (score < 100) { targetColor.copy(dayColor); sunY = 35; }
+            else if (score < 250) {
+                const t = (score - 100) / 150; targetColor.lerpColors(dayColor, sunsetColor, t);
+                sunY = 35 - (30 * t); sunIntensity = 1.2 - (0.6 * t); headlightIntensity = t * 1.5;
+            } else {
+                const t = Math.min(1, (score - 250) / 200); targetColor.lerpColors(sunsetColor, nightColor, t);
+                sunY = 5 - (15 * t); sunIntensity = 0.1; headlightIntensity = 2.8;
+            }
+
+            scene.background.lerp(targetColor, 0.05); scene.fog.color.lerp(targetColor, 0.05);
+            sunMesh.position.y = THREE.MathUtils.lerp(sunMesh.position.y, sunY, 0.05);
+            sunLight.intensity = THREE.MathUtils.lerp(sunLight.intensity, sunIntensity, 0.05);
+            ambientLight.intensity = THREE.MathUtils.lerp(ambientLight.intensity, sunIntensity * 0.5, 0.05);
+            headlightL.intensity = THREE.MathUtils.lerp(headlightL.intensity, headlightIntensity, 0.05);
+            headlightR.intensity = THREE.MathUtils.lerp(headlightR.intensity, headlightIntensity, 0.05);
+
+            document.getElementById('stage-val').innerText = stage;
+            document.getElementById('diff-val').innerText = diffText;
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (scanOverlay.style.display !== 'none') return;
+            initAudio();
+            if (isGameOver) return;
+            if ((e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') && currentLane > -1) currentLane--;
+            if ((e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') && currentLane < 1) currentLane++;
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') currentSpeed = baseSpeed * 1.6;
+            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { currentSpeed = baseSpeed * 0.45; playBrakeSound(); }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (['ArrowUp', 'w', 'W', 'ArrowDown', 's', 'S'].includes(e.key)) currentSpeed = baseSpeed;
+        });
+
+        const bindBtn = (id, actionDown, actionUp) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); actionDown(); }, { passive: false });
+            btn.addEventListener('mousedown', () => { initAudio(); actionDown(); });
+            if (actionUp) {
+                btn.addEventListener('touchend', (e) => { e.preventDefault(); actionUp(); }, { passive: false });
+                btn.addEventListener('mouseup', actionUp);
+            }
+        };
+
+        bindBtn('btn-left', () => { if (!isGameOver && currentLane > -1) currentLane--; });
+        bindBtn('btn-right', () => { if (!isGameOver && currentLane < 1) currentLane++; });
+        bindBtn('btn-boost', () => { if (!isGameOver) currentSpeed = baseSpeed * 1.6; }, () => { currentSpeed = baseSpeed; });
+        bindBtn('btn-brake', () => { if (!isGameOver) { currentSpeed = baseSpeed * 0.45; playBrakeSound(); } }, () => { currentSpeed = baseSpeed; });
+
+        function spawnObstacle() {
+            if (isGameOver) return;
+            const rand = Math.random(); let obs = null;
+            if (stage === 1) { obs = rand < 0.6 ? createCone() : createBlock(); }
+            else {
+                if (rand < 0.25) obs = createCone();
+                else if (rand < 0.45) obs = createBlock();
+                else if (rand < 0.7) { obs = createPedestrian(); spawnSign('pedestrian'); showWarningHUD('¡PRECAUCIÓN! PEATONES EN RUTA'); }
+                else { obs = createAnimal(); spawnSign('animal'); showWarningHUD('¡PRECAUCIÓN! ANIMALES SUELTOS'); playAnimalSound(); }
+            }
+            const lane = Math.floor(Math.random() * 3) - 1;
+            const isCrossing = (obs.userData && (obs.userData.type === 'pedestrian' || obs.userData.type === 'animal'));
+            obs.position.set(isCrossing ? (obs.userData.direction === 1 ? -6.5 : 6.5) : lanePositions[lane + 1], 0, -90);
+            scene.add(obs); obstacles.push(obs);
+        }
+
+        function spawnSign(type) {
+            const sign = createTrafficSign(type); sign.position.set(-7.2, 0, -120); scene.add(sign); scenery.push(sign);
+        }
+
+        function spawnCollectible() {
+            if (isGameOver) return;
+            const group = new THREE.Group();
+            group.add(new THREE.Mesh(new THREE.OctahedronGeometry(0.55), new THREE.MeshStandardMaterial({ color: 0xffcc00, metalness: 0.8 })));
+            const textCard = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.22), new THREE.MeshBasicMaterial({ map: extraGncTexture, side: THREE.DoubleSide }));
+            textCard.position.z = 0.01; group.add(textCard);
+            const lane = Math.floor(Math.random() * 3) - 1;
+            group.position.set(lanePositions[lane + 1], 0.65, -80);
+            scene.add(group); collectibles.push(group);
+        }
+
+        let spawnTimer = 0, sceneryTimer = 0;
 
         function animate() {
-            if (!gameActive) return;
             requestAnimationFrame(animate);
 
-            playerBox.position.x += (lanes[laneIndex] - playerBox.position.x) * 0.2;
+            if (!isGameOver && scanOverlay.style.display === 'none') {
+                updateDifficultyAndEnvironment();
+                updateEnginePitch(currentSpeed / baseSpeed);
+
+                playerGroup.position.x += (lanePositions[currentLane + 1] - playerGroup.position.x) * 0.18;
+
+                cloudsGroup.children.forEach(c => { c.position.z += currentSpeed * 0.2; if (c.position.z > 20) c.position.z = -320; });
+
+                spawnTimer += 0.016; sceneryTimer += 0.016;
+                if (sceneryTimer > 0.25) {
+                    sceneryTimer = 0; const tree = createTree();
+                    tree.position.set((Math.random() > 0.5 ? 1 : -1) * (8.5 + Math.random() * 15), 0, -120);
+                    scene.add(tree); scenery.push(tree);
+                }
+
+                if (spawnTimer > spawnInterval) {
+                    spawnTimer = 0;
+                    if (Math.random() > 0.2) spawnObstacle();
+                    if (Math.random() > 0.35) spawnCollectible();
+                }
+
+                for (let i = scenery.length - 1; i >= 0; i--) {
+                    const obj = scenery[i]; obj.position.z += currentSpeed;
+                    if (obj.position.z > 10) { scene.remove(obj); scenery.splice(i, 1); }
+                }
+
+                for (let i = obstacles.length - 1; i >= 0; i--) {
+                    const obs = obstacles[i]; obs.position.z += currentSpeed;
+                    if (obs.userData && obs.userData.type === 'pedestrian') {
+                        obs.position.x += obs.userData.walkSpeed * obs.userData.direction;
+                        obs.userData.animTimer += 0.15;
+                        const angle = Math.sin(obs.userData.animTimer) * 0.45;
+                        obs.userData.leftLeg.rotation.x = angle; obs.userData.rightLeg.rotation.x = -angle;
+                    }
+                    if (obs.userData && obs.userData.type === 'animal') {
+                        obs.position.x += obs.userData.walkSpeed * obs.userData.direction;
+                    }
+
+                    if (Math.abs(obs.position.z - playerGroup.position.z) < 1.1 && Math.abs(obs.position.x - playerGroup.position.x) < 0.85) {
+                        playCrashSound();
+                        if (obs.userData && (obs.userData.type === 'pedestrian' || obs.userData.type === 'animal')) lives = 0;
+                        else lives--;
+                        scene.remove(obs); obstacles.splice(i, 1); updateUI();
+                        if (lives <= 0) triggerGameOver();
+                        continue;
+                    }
+
+                    if (obs.position.z > 6 || Math.abs(obs.position.x) > 12) { scene.remove(obs); obstacles.splice(i, 1); }
+                }
+
+                for (let i = collectibles.length - 1; i >= 0; i--) {
+                    const item = collectibles[i]; item.position.z += currentSpeed; item.rotation.y += 0.04;
+                    if (Math.abs(item.position.z - playerGroup.position.z) < 1.1 && Math.abs(item.position.x - playerGroup.position.x) < 0.85) {
+                        scene.remove(item); collectibles.splice(i, 1); score += 15; updateUI(); continue;
+                    }
+                    if (item.position.z > 6) { scene.remove(item); collectibles.splice(i, 1); }
+                }
+            }
             renderer.render(scene, camera);
         }
 
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+        function updateUI() {
+            document.getElementById('score-val').innerText = score;
+            document.getElementById('lives-val').innerText = '❤️'.repeat(Math.max(0, lives));
         }
 
-        function finalizarPartida() {
-            const fechaJuego = getFechaHoraActual();
-            fetch(`${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${score}`, { method: "GET", redirect: "follow" })
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('go-score').innerText = score;
-                document.getElementById('prize-result-box').innerHTML = `
-                    <div id="receipt">
-                        <div class="r-header">
-                            *** SHELL GNC - TURBO RACER ***<br>
-                            COMPROBANTE DE PREMIO
-                        </div>
-                        <div class="r-line"><span>FECHA JUEGO:</span> <strong>${fechaJuego}</strong></div>
-                        <div class="r-line"><span>CÓDIGO:</span> <strong>${activeTicketCode}</strong></div>
-                        <div class="r-line"><span>PUNTAJE:</span> <strong>${score} PTS</strong></div>
-                        <hr style="border: 0.5px dashed #000; margin: 5px 0;">
-                        <div class="r-line"><span>PREMIO ASIGNADO:</span></div>
-                        <div style="font-size: 14px; font-weight: bold; text-align: center; margin: 8px 0; color: #000;">
-                            ${data.premioAsignado || 'Siga participando'}
-                        </div>
-                        <div class="r-footer">
-                            Presente este ticket en la caja del Shop<br>
-                            para retirar su premio.
-                        </div>
+        // --- MANEJO DE FIN DE JUEGO E INTEGRACIÓN ASÍNCRONA CON APPS SCRIPT ---
+        async function triggerGameOver() {
+            isGameOver = true;
+            const resultBox = document.getElementById('prize-result-box');
+            document.getElementById('go-title').innerText = "¡GAME OVER!";
+            document.getElementById('final-score').style.display = 'block';
+            document.getElementById('final-score').innerText = `PUNTUACIÓN FINAL: ${score} PTS`;
+            
+            const fechaJuegoActual = getFechaHoraFormateada();
+
+            resultBox.innerHTML = `
+                <div style="background: rgba(0, 210, 255, 0.1); border: 2px solid #00d2ff; border-radius: 8px; padding: 12px; color: #00d2ff;">
+                    <p style="font-size: 14px; font-weight: bold;">Procesando resultado y consultando premio...</p>
+                </div>
+            `;
+            document.getElementById('game-over-screen').style.display = 'flex';
+
+            let premioObtenido = "Siga participando";
+
+            try {
+                const url = `${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${score}`;
+                const response = await fetch(url, { method: "GET", redirect: "follow" });
+                const data = await response.json();
+
+                if (data.status === "OK" && data.premioAsignado) {
+                    premioObtenido = data.premioAsignado;
+                }
+            } catch (err) {
+                console.error("Error al comunicarse con Apps Script:", err);
+            }
+
+            if (score >= PUNTAJE_MINIMO_PREMIO && premioObtenido !== "Siga participando") {
+                resultBox.innerHTML = `
+                    <div style="background: rgba(0, 255, 136, 0.15); border: 2px solid #00ff88; border-radius: 8px; padding: 12px; color: #00ff88;">
+                        <h3 style="margin-bottom: 5px;">🏆 ¡FELICITACIONES! 🏆</h3>
+                        <p style="color: #fff; font-size: 16px; font-weight: bold;">${premioObtenido}</p>
+                        <p style="font-size: 12px; color: #a0aec0; margin-top: 8px;">Imprimiendo comprobante de premio...</p>
                     </div>
-                    <button class="btn-action" style="background: #00d2ff; color: #000; margin-bottom: 10px;" onclick="window.print();">🖨️ IMPRIMIR COMPROBANTE</button>
                 `;
-                document.getElementById('game-over-screen').style.display = 'flex';
-            })
-            .catch(() => {
-                alert("Error al guardar los resultados en la base de datos.");
-                location.reload();
-            });
+                imprimirTicketPremio(premioObtenido, fechaJuegoActual);
+            } else {
+                resultBox.innerHTML = `
+                    <div style="background: rgba(255, 204, 0, 0.1); border: 2px solid #ffcc00; border-radius: 8px; padding: 12px; color: #ffcc00;">
+                        <h3 style="margin-bottom: 5px;">¡GRACIAS POR JUGAR!</h3>
+                        <p style="color: #fff; font-size: 14px; margin-top: 5px;">${premioObtenido}</p>
+                        <p style="color: #00d2ff; font-size: 13px; font-weight: bold; margin-top: 10px;">¡Volvé a cargar en tu próxima visita e intentalo de nuevo!</p>
+                    </div>
+                `;
+            }
         }
+
+        function resetGame() {
+            obstacles.forEach(obs => scene.remove(obs));
+            collectibles.forEach(item => scene.remove(item));
+            scenery.forEach(item => scene.remove(item));
+            obstacles.length = 0; collectibles.length = 0; scenery.length = 0;
+            score = 0; stage = 1; lives = 3; baseSpeed = 0.45; currentSpeed = baseSpeed; currentLane = 0; isGameOver = false;
+            playerGroup.position.set(0, 0, 0);
+            updateUI();
+            document.getElementById('game-over-screen').style.display = 'none';
+            scanOverlay.style.display = 'flex';
+            scanStatus.innerText = "Aguardando código...";
+            barcodeInput.value = ""; barcodeInput.focus();
+        }
+
+        window.addEventListener('resize', () => {
+            updateCameraFOV();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
     </script>
 </body>
 </html>
