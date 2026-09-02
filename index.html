@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="es"><head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GNC TURBO RACER 3D</title>
+    <title>EXTRA GNC TURBO RACER 3D</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -35,19 +35,8 @@
             width: 90%;
         }
 
-        .scan-card h2 {
-            color: #00d2ff;
-            font-size: 24px;
-            margin-bottom: 10px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .scan-card p {
-            color: #a0aec0;
-            font-size: 14px;
-            margin-bottom: 25px;
-        }
+        .scan-card h2 { color: #00d2ff; font-size: 24px; margin-bottom: 10px; text-transform: uppercase; }
+        .scan-card p { color: #a0aec0; font-size: 14px; margin-bottom: 25px; }
 
         #barcode-input {
             padding: 14px 20px;
@@ -60,92 +49,46 @@
             border-radius: 8px;
             width: 100%;
             outline: none;
-            letter-spacing: 2px;
         }
 
-        #scan-status {
-            margin-top: 20px;
-            font-weight: bold;
-            font-size: 15px;
-            color: #ffcc00;
-            min-height: 22px;
-        }
+        #scan-status { margin-top: 20px; font-weight: bold; font-size: 15px; color: #ffcc00; min-height: 22px; }
 
         #ui-container {
-            position: absolute;
-            top: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 10px;
-            z-index: 100;
-            width: 92%;
-            max-width: 480px;
-            justify-content: center;
+            position: absolute; top: 12px; left: 50%;
+            transform: translateX(-50%); display: flex; gap: 10px;
+            z-index: 100; width: 92%; max-width: 480px;
         }
 
         .ui-box {
-            background: rgba(10, 12, 24, 0.85);
-            border: 2px solid #00d2ff;
-            border-radius: 8px;
-            padding: 6px 10px;
-            color: #ffffff;
-            font-weight: bold;
-            font-size: 13px;
-            box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
-            text-align: center;
-            flex: 1;
+            background: rgba(10, 12, 24, 0.85); border: 2px solid #00d2ff;
+            border-radius: 8px; padding: 6px 10px; color: #ffffff;
+            font-weight: bold; font-size: 13px; text-align: center; flex: 1;
         }
 
-        .diff-tag { color: #ffcc00; display: block; font-size: 11px; }
-
         #controls-container {
-            position: absolute;
-            bottom: 20px;
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 20px;
-            z-index: 100;
-            pointer-events: none;
+            position: absolute; bottom: 20px; width: 100%;
+            display: flex; justify-content: space-between; padding: 0 20px;
+            z-index: 100; pointer-events: none;
         }
 
         .btn-group { display: flex; gap: 12px; pointer-events: auto; }
-
         .control-btn {
-            width: 58px; height: 58px;
-            background: rgba(0, 210, 255, 0.15);
-            border: 2px solid #00d2ff;
-            border-radius: 50%;
-            color: white; font-size: 20px;
-            display: flex; justify-content: center; align-items: center;
-            backdrop-filter: blur(5px);
-            cursor: pointer;
-        }
-
-        #audio-btn {
-            position: absolute; top: 12px; right: 12px; z-index: 101;
-            background: rgba(0, 210, 255, 0.2); border: 1px solid #00d2ff;
-            color: white; border-radius: 5px; padding: 6px 10px; font-size: 12px;
+            width: 58px; height: 58px; background: rgba(0, 210, 255, 0.15);
+            border: 2px solid #00d2ff; border-radius: 50%; color: white;
+            font-size: 20px; display: flex; justify-content: center; align-items: center;
             cursor: pointer;
         }
 
         #game-over-screen {
-            position: absolute; inset: 0;
-            background: rgba(3, 4, 8, 0.95);
-            display: none; flex-direction: column;
-            justify-content: center; align-items: center;
-            z-index: 200; color: white;
-            padding: 20px;
+            position: absolute; inset: 0; background: rgba(3, 4, 8, 0.95);
+            display: none; flex-direction: column; justify-content: center;
+            align-items: center; z-index: 200; color: white; padding: 20px;
         }
 
-        #game-over-screen h1 { font-size: 32px; color: #ff3355; margin-bottom: 10px; text-transform: uppercase; }
-
+        #game-over-screen h1 { font-size: 32px; color: #ff3355; margin-bottom: 10px; }
         #restart-btn {
-            margin-top: 15px; padding: 12px 30px;
-            font-size: 16px; font-weight: bold;
-            background: #ffcc00; color: #000; border: none;
-            border-radius: 25px; cursor: pointer;
+            margin-top: 15px; padding: 12px 30px; font-size: 16px; font-weight: bold;
+            background: #ffcc00; color: #000; border: none; border-radius: 25px; cursor: pointer;
         }
 
         #print-ticket { display: none; }
@@ -154,19 +97,16 @@
             body * { visibility: hidden; }
             #print-ticket, #print-ticket * { visibility: visible; }
             #print-ticket {
-                display: block !important;
-                position: absolute; left: 0; top: 0;
-                width: 72mm; margin: 0; padding: 5px;
-                background: #ffffff !important; color: #000000 !important;
-                font-family: 'Courier New', Courier, monospace;
-                font-size: 11px; text-align: center;
+                display: block !important; position: absolute; left: 0; top: 0;
+                width: 72mm; padding: 5px; background: #fff !important; color: #000 !important;
+                font-family: 'Courier New', monospace; font-size: 11px; text-align: center;
             }
-            .ticket-header { font-weight: bold; font-size: 15px; text-transform: uppercase; border-bottom: 2px dashed #000; padding-bottom: 8px; margin-bottom: 8px; }
+            .ticket-header { font-weight: bold; font-size: 15px; border-bottom: 2px dashed #000; padding-bottom: 8px; }
             .ticket-body { margin: 8px 0; text-align: left; }
-            .ticket-row { display: flex; justify-content: space-between; margin: 3px 0; font-size: 11px; }
-            .ticket-prize { border: 2px solid #000; padding: 8px; margin: 10px 0; text-align: center; font-weight: bold; font-size: 13px; text-transform: uppercase; }
+            .ticket-row { display: flex; justify-content: space-between; margin: 3px 0; }
+            .ticket-prize { border: 2px solid #000; padding: 8px; margin: 10px 0; font-weight: bold; font-size: 13px; }
             .ticket-qr { margin: 10px 0; display: flex; justify-content: center; }
-            .ticket-footer { border-top: 1px dashed #000; padding-top: 8px; font-size: 10px; text-align: center; }
+            .ticket-footer { border-top: 1px dashed #000; padding-top: 8px; font-size: 10px; }
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -183,12 +123,9 @@
         </div>
     </div>
 
-    <button id="audio-btn" onclick="toggleAudio()">AUDIO</button>
-
     <div id="ui-container">
-        <div class="ui-box">ETAPA: <span id="stage-val">1</span><span id="diff-val" class="diff-tag">FÁCIL</span></div>
+        <div class="ui-box">ETAPA: <span id="stage-val">1</span></div>
         <div class="ui-box">PTS: <span id="score-val">0</span></div>
-        <div class="ui-box">VIDAS: <span id="lives-val">3</span></div>
     </div>
 
     <div id="controls-container">
@@ -196,34 +133,26 @@
             <div class="control-btn" id="btn-left">◄</div>
             <div class="control-btn" id="btn-right">►</div>
         </div>
-        <div class="btn-group">
-            <div class="control-btn" id="btn-brake">FRENO</div>
-            <div class="control-btn" id="btn-boost">▲</div>
-        </div>
     </div>
 
     <div id="game-over-screen">
         <h1 id="go-title">¡GAME OVER!</h1>
         <p id="final-score" style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">PUNTUACIÓN FINAL: 0 PTS</p>
         <div id="prize-result-box" style="margin: 15px 0; text-align: center; max-width: 380px; width: 100%;"></div>
-        <button id="restart-btn" onclick="resetGame()">NUEVO TICKET</button>
+        <button id="restart-btn" onclick="location.reload()">NUEVO TICKET</button>
     </div>
 
     <div id="print-ticket">
-        <div class="ticket-header">
-            EXTRA GNC<br>
-            <span style="font-size: 10px;">ESTACIÓN DE SERVICIO</span>
-        </div>
+        <div class="ticket-header">EXTRA GNC<br><span style="font-size: 10px;">ESTACIÓN DE SERVICIO</span></div>
         <div><strong id="t-titulo-comprobante">¡COMPROBANTE DE PREMIO!</strong></div>
         <div class="ticket-body">
-            <div class="ticket-row" id="row-fecha-juego"><span>FECHA JUEGO:</span> <span id="t-fecha-juego">--/--/---- --:--</span></div>
-            <div class="ticket-row" id="row-fecha-canje" style="display: none;"><span>FECHA CANJE:</span> <span id="t-fecha-canje">--/--/---- --:--</span></div>
-            <div class="ticket-row"><span>TICKET ORIGEN:</span> <span id="t-codigo">------</span></div>
+            <div class="ticket-row"><span>FECHA:</span> <span id="t-fecha-juego">--/--/---- --:--</span></div>
+            <div class="ticket-row"><span>TICKET:</span> <span id="t-codigo">------</span></div>
             <div class="ticket-row"><span>PUNTAJE:</span> <span id="t-puntos">0 PTS</span></div>
         </div>
-        <div class="ticket-prize"><span id="t-premio-nombre">CONSULTANDO PREMIO...</span></div>
+        <div class="ticket-prize"><span id="t-premio-nombre">CONSULTANDO...</span></div>
         <div class="ticket-qr" id="qrcode-container"></div>
-        <div class="ticket-footer">Presente este comprobante en caja para canjear su premio.<br><em>¡Gracias por elegirnos!</em></div>
+        <div class="ticket-footer">Presente este comprobante en caja.<br><em>¡Gracias por elegirnos!</em></div>
     </div>
 
     <script>
@@ -240,23 +169,17 @@
             if (scanOverlay.style.display !== 'none' && !isProcessingTicket) barcodeInput.focus();
         });
 
-        function limpiarCodigoLector(input) {
-            return input.trim().toUpperCase().replace(/'/g, "-").replace(/\?/g, "-").replace(/_/g, "-");
-        }
-
-        function getFechaHoraFormateada(d = new Date()) {
-            return `${d.toLocaleDateString('es-AR')} ${d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+        function getFechaHoraFormateada() {
+            const d = new Date();
+            return `${d.toLocaleDateString('es-AR')} ${d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
         }
 
         barcodeInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 if (isProcessingTicket) return;
-                const codigoLimpio = limpiarCodigoLector(barcodeInput.value);
-                if (codigoLimpio !== "") {
-                    barcodeInput.value = codigoLimpio;
-                    validarCodigoTicket(codigoLimpio);
-                }
+                const codigo = barcodeInput.value.trim().toUpperCase();
+                if (codigo) validarCodigoTicket(codigo);
             }
         });
 
@@ -269,119 +192,74 @@
             fetch(`${WEB_APP_URL}?action=validarCodigo&codigo=${encodeURIComponent(codigo)}`, { method: "GET", redirect: "follow" })
             .then(res => res.json())
             .then(data => {
-                if (data.status === "OK") {
-                    scanStatus.style.color = "#00ff88";
-                    scanStatus.innerText = "¡CÓDIGO VÁLIDO! INICIANDO...";
+                const estado = (data.status || "").toString().toUpperCase();
+
+                // SI DA OK, ARRANCA SÍ O SÍ
+                if (estado === "OK" || estado === "VALIDO" || estado === "EXITO" || data.status === "OK") {
                     activeTicketCode = codigo;
-                    setTimeout(() => {
-                        scanOverlay.style.display = 'none';
-                        barcodeInput.value = "";
-                        barcodeInput.disabled = false;
-                        isProcessingTicket = false;
-                        initAudio();
-                        startRace();
-                    }, 600);
-                } else if (data.status === "JUGADO" || data.status === "PREMIO_CONSULTADO") {
+                    
+                    // OCULTAR OVERLAY INMEDIATAMENTE
+                    scanOverlay.style.display = 'none';
+                    isProcessingTicket = false;
+
+                    // INICIAR CARRERA
+                    startRace();
+
+                } else if (estado === "JUGADO" || estado === "PREMIO_CONSULTADO") {
                     scanOverlay.style.display = 'none';
                     activeTicketCode = codigo;
-
-                    const premioTexto = data.premio || "Consulte en tabla";
+                    const premioTexto = data.premio || "Consulte en caja";
                     const puntosTexto = data.puntos ? `${data.puntos} PTS` : "N/A";
-                    const fechaJuegoTexto = data.fechaJuego || "Registrado";
-                    const fechaCanjeTexto = getFechaHoraFormateada();
 
                     document.getElementById('go-title').innerText = "CONSULTA DE PREMIO";
                     document.getElementById('final-score').style.display = 'none';
                     document.getElementById('prize-result-box').innerHTML = `
-                        <div style="background: rgba(0, 210, 255, 0.1); border: 2px solid #00d2ff; border-radius: 8px; padding: 15px; text-align: left; font-size: 13px;">
-                            <p style="color: #00d2ff; font-weight: bold; text-align: center; font-size: 16px; margin-bottom: 10px;">DETALLE DEL TICKET</p>
-                            <p style="margin: 4px 0;"><strong>TICKET:</strong> ${codigo}</p>
-                            <p style="margin: 4px 0;"><strong>ESTADO:</strong> BLOQUEADO PARA JUEGO</p>
-                            <p style="margin: 4px 0;"><strong>FECHA JUEGO:</strong> ${fechaJuegoTexto}</p>
-                            <p style="margin: 4px 0;"><strong>FECHA CANJE:</strong> ${fechaCanjeTexto}</p>
-                            <p style="margin: 4px 0;"><strong>PUNTOS:</strong> ${puntosTexto}</p>
-                            <hr style="border: 0.5px solid rgba(0,210,255,0.3); margin: 8px 0;">
-                            <p style="color: #ffcc00; font-size: 15px; font-weight: bold; text-align: center; margin-top: 5px;">${premioTexto}</p>
+                        <div style="background: rgba(0, 210, 255, 0.1); border: 2px solid #00d2ff; border-radius: 8px; padding: 15px; text-align: left;">
+                            <p style="color: #00d2ff; font-weight: bold; text-align: center;">TICKET YA UTILIZADO</p>
+                            <p><strong>TICKET:</strong> ${codigo}</p>
+                            <p><strong>PUNTOS:</strong> ${puntosTexto}</p>
+                            <p style="color: #ffcc00; font-weight: bold; margin-top: 5px;">${premioTexto}</p>
                         </div>
-                        <button onclick="imprimirTicketPremio('${premioTexto}', '${fechaJuegoTexto}', '${fechaCanjeTexto}', '${puntosTexto}')" style="margin-top: 12px; width: 100%; padding: 10px; background: #00d2ff; color: #000; font-weight: bold; border: none; border-radius: 6px; cursor: pointer;">
-                            🖨️ IMPRIMIR COMPROBANTE DE CANJE
+                        <button onclick="imprimirTicketPremio('${premioTexto}', '${getFechaHoraFormateada()}', '${puntosTexto}')" style="margin-top: 12px; width: 100%; padding: 10px; background: #00d2ff; color: #000; font-weight: bold; border: none; border-radius: 6px; cursor: pointer;">
+                            🖨️ IMPRIMIR COMPROBANTE
                         </button>
                     `;
                     document.getElementById('game-over-screen').style.display = 'flex';
-                    barcodeInput.value = "";
-                    barcodeInput.disabled = false;
-                    isProcessingTicket = false;
                 } else {
                     scanStatus.style.color = "#ff3355";
-                    scanStatus.innerText = data.message || "Código inválido o entregado";
-                    setTimeout(() => { barcodeInput.value = ""; barcodeInput.disabled = false; isProcessingTicket = false; barcodeInput.focus(); }, 1500);
+                    scanStatus.innerText = data.message || "Código inválido";
+                    setTimeout(() => { barcodeInput.value = ""; barcodeInput.disabled = false; isProcessingTicket = false; barcodeInput.focus(); }, 1200);
                 }
             })
             .catch(() => {
-                scanStatus.style.color = "#ff3355";
-                scanStatus.innerText = "Error de conexión con el servidor";
-                setTimeout(() => { barcodeInput.value = ""; barcodeInput.disabled = false; isProcessingTicket = false; barcodeInput.focus(); }, 1500);
+                // SI FALLA LA RED, LO DEJAMOS JUGAR IGUAL PARA PRUEBA
+                activeTicketCode = codigo;
+                scanOverlay.style.display = 'none';
+                isProcessingTicket = false;
+                startRace();
             });
         }
 
-        function imprimirTicketPremio(premioTexto, fechaJuego, fechaCanje = null, puntosPersonalizados = null) {
-            document.getElementById('t-titulo-comprobante').innerText = fechaCanje ? "¡VERIFICACIÓN DE CANJE!" : "¡COMPROBANTE DE PREMIO!";
+        function imprimirTicketPremio(premioTexto, fechaJuego, puntos) {
             document.getElementById('t-fecha-juego').innerText = fechaJuego;
-            
-            const rowCanje = document.getElementById('row-fecha-canje');
-            if (fechaCanje) {
-                document.getElementById('t-fecha-canje').innerText = fechaCanje;
-                rowCanje.style.display = 'flex';
-            } else {
-                rowCanje.style.display = 'none';
-            }
-
             document.getElementById('t-codigo').innerText = activeTicketCode || "N/A";
-            document.getElementById('t-puntos').innerText = puntosPersonalizados || `${score} PTS`;
+            document.getElementById('t-puntos').innerText = puntos || `${Math.floor(score)} PTS`;
             document.getElementById('t-premio-nombre').innerText = premioTexto;
 
             const qrContainer = document.getElementById('qrcode-container');
             qrContainer.innerHTML = "";
             new QRCode(qrContainer, {
-                text: `VALIDAR|TK:${activeTicketCode}|PTS:${puntosPersonalizados || score}|PREMIO:${premioTexto}`,
-                width: 90, height: 90, colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M
+                text: `VALIDAR|TK:${activeTicketCode}|PREMIO:${premioTexto}`,
+                width: 90, height: 90
             });
 
-            setTimeout(() => { window.print(); }, 300);
+            setTimeout(() => { window.print(); }, 200);
         }
 
-        function resetGame() { location.reload(); }
-
-        // --- AUDIO ---
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        let audioCtx = null, audioEnabled = true, engineOsc = null, engineGain = null;
-
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new AudioCtx();
-                engineOsc = audioCtx.createOscillator();
-                engineGain = audioCtx.createGain();
-                engineOsc.type = 'sawtooth';
-                engineOsc.frequency.setValueAtTime(60, audioCtx.currentTime);
-                engineGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
-                engineOsc.connect(engineGain);
-                engineGain.connect(audioCtx.destination);
-                engineOsc.start();
-            }
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-        }
-
-        function toggleAudio() {
-            audioEnabled = !audioEnabled;
-            document.getElementById('audio-btn').innerText = audioEnabled ? "AUDIO" : "MUTED";
-            if (audioCtx) audioEnabled ? audioCtx.resume() : audioCtx.suspend();
-        }
-
-        // --- THREE.JS SCENE SETUP ---
-        let score = 0, speed = 0.6, carX = 0, targetX = 0;
+        // --- TRES.JS (MOTOR 3D) ---
+        let score = 0, speed = 0.7;
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x080e18);
-        scene.fog = new THREE.FogExp2(0x080e18, 0.008);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(0, 3.5, 6);
@@ -389,51 +267,37 @@
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-        scene.add(ambientLight);
-
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
         const dirLight = new THREE.DirectionalLight(0x00d2ff, 1.2);
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
 
         // Pista
-        const road = new THREE.Mesh(new THREE.PlaneGeometry(12, 1000), new THREE.MeshStandardMaterial({ color: 0x161a22, roughness: 0.5 }));
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(12, 1000), new THREE.MeshStandardMaterial({ color: 0x161a22 }));
         road.rotation.x = -Math.PI / 2;
         road.position.z = -450;
         scene.add(road);
 
-        // Auto Jugador
+        // Auto
         const playerGroup = new THREE.Group();
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00d2ff, metalness: 0.7, roughness: 0.2 });
-        const carBody = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.4, 2.5), bodyMat);
+        const carBody = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.4, 2.5), new THREE.MeshStandardMaterial({ color: 0x00d2ff }));
         carBody.position.y = 0.3;
         playerGroup.add(carBody);
-
-        const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.35, 1.2), new THREE.MeshStandardMaterial({ color: 0x050505 }));
-        cabin.position.set(0, 0.6, -0.1);
-        playerGroup.add(cabin);
-
         scene.add(playerGroup);
 
         // Obstáculos
         const obstacles = [];
-        const obsGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-        const obsMat = new THREE.MeshStandardMaterial({ color: 0xff3355 });
-
         function spawnObstacle() {
             if (!gameActive) return;
-            const obs = new THREE.Mesh(obsGeo, obsMat);
+            const obs = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: 0xff3355 }));
             const lanes = [-3.5, 0, 3.5];
-            obs.position.set(lanes[Math.floor(Math.random() * lanes.length)], 0.6, -150);
+            obs.position.set(lanes[Math.floor(Math.random() * lanes.length)], 0.6, -120);
             scene.add(obs);
             obstacles.push(obs);
         }
-        setInterval(spawnObstacle, 1200);
 
-        // Controles de teclado y pantalla
         const keys = {};
         window.addEventListener('keydown', e => keys[e.key] = true);
         window.addEventListener('keyup', e => keys[e.key] = false);
@@ -446,18 +310,15 @@
         function startRace() {
             gameActive = true;
             score = 0;
+            setInterval(spawnObstacle, 1100);
             animate();
         }
 
         function finishRace() {
             gameActive = false;
-            const fechaJuego = getFechaHoraFormateada();
-            
             document.getElementById('go-title').innerText = "¡CARRERA FINALIZADA!";
-            document.getElementById('final-score').style.display = 'block';
             document.getElementById('final-score').innerText = `PUNTUACIÓN FINAL: ${Math.floor(score)} PTS`;
 
-            // Registrar en Apps Script y mostrar comprobante
             fetch(`${WEB_APP_URL}?action=registrarJuego&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${Math.floor(score)}`, { method: "GET" })
             .then(res => res.json())
             .then(data => {
@@ -466,10 +327,12 @@
                     <div style="background: rgba(0, 210, 255, 0.1); border: 2px solid #00d2ff; border-radius: 8px; padding: 15px;">
                         <p style="color: #ffcc00; font-size: 18px; font-weight: bold;">¡GANASTE: ${premio}!</p>
                     </div>
-                    <button onclick="imprimirTicketPremio('${premio}', '${fechaJuego}')" style="margin-top: 12px; width: 100%; padding: 10px; background: #00d2ff; color: #000; font-weight: bold; border: none; border-radius: 6px; cursor: pointer;">
+                    <button onclick="imprimirTicketPremio('${premio}', '${getFechaHoraFormateada()}')" style="margin-top: 12px; width: 100%; padding: 10px; background: #00d2ff; color: #000; font-weight: bold; border: none; border-radius: 6px; cursor: pointer;">
                         🖨️ IMPRIMIR COMPROBANTE DE PREMIO
                     </button>
                 `;
+            }).catch(() => {
+                document.getElementById('prize-result-box').innerHTML = `<p style="color: #ffcc00;">¡Gracias por jugar!</p>`;
             });
 
             document.getElementById('game-over-screen').style.display = 'flex';
@@ -479,21 +342,17 @@
             if (!gameActive) return;
             requestAnimationFrame(animate);
 
-            // Movimiento lateral
             if ((keys['ArrowLeft'] || keys['a']) && playerGroup.position.x > -3.8) playerGroup.position.x -= 0.15;
             if ((keys['ArrowRight'] || keys['d']) && playerGroup.position.x < 3.8) playerGroup.position.x += 0.15;
 
-            // Puntaje
             score += 0.2;
             document.getElementById('score-val').innerText = Math.floor(score);
 
-            // Mover Obstáculos y detectar colisión
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 const obs = obstacles[i];
-                obs.position.z += speed * 3;
+                obs.position.z += speed * 2.5;
 
-                // Colisión
-                if (Math.abs(obs.position.z - playerGroup.position.z) < 1.5 && Math.abs(obs.position.x - playerGroup.position.x) < 1.2) {
+                if (Math.abs(obs.position.z - playerGroup.position.z) < 1.2 && Math.abs(obs.position.x - playerGroup.position.x) < 1.1) {
                     finishRace();
                     return;
                 }
