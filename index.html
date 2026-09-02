@@ -1,255 +1,484 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GNC TURBO RACER 3D</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <style>
-    body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; background: #111; color: #fff; }
-    #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
-    
-    .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.85); text-align: center; }
-    .card { background: #222; border: 2px solid #f39c12; padding: 30px; border-radius: 12px; box-shadow: 0 0 20px rgba(243, 156, 18, 0.4); max-width: 480px; width: 90%; }
-    h1 { color: #f39c12; margin-top: 0; }
-    input[type="text"] { width: 80%; padding: 12px; margin: 15px 0; font-size: 1.2rem; text-align: center; border-radius: 6px; border: 1px solid #444; background: #333; color: #fff; text-transform: uppercase; }
-    button { background: #f39c12; color: #111; font-weight: bold; border: none; padding: 12px 25px; font-size: 1.1rem; border-radius: 6px; cursor: pointer; transition: 0.2s; }
-    button:hover { background: #e67e22; }
-    button:disabled { background: #555; color: #888; cursor: not-allowed; }
-    
-    #hud { position: absolute; top: 20px; left: 20px; z-index: 5; font-size: 1.5rem; font-weight: bold; color: #f39c12; display: none; text-shadow: 2px 2px 4px #000; }
-    
-    #print-voucher { display: none; }
-    @media print {
-      body * { visibility: hidden; }
-      #print-voucher, #print-voucher * { visibility: visible; }
-      #print-voucher { display: block !important; position: absolute; left: 0; top: 0; width: 80mm; font-family: monospace; color: #000; background: #fff; padding: 10px; font-size: 11pt; text-align: center; }
-      .v-line { border-bottom: 2px dashed #000; margin: 8px 0; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNC TURBO RACER 3D</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505;
+            color: #fff;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* --- OVERLAY DE ESCANEO DE CÓDIGO --- */
+        #scan-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 5, 0.95);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .scan-box {
+            background: rgba(20, 20, 20, 0.8);
+            border: 2px solid #ff0055;
+            box-shadow: 0 0 20px rgba(255, 0, 85, 0.4);
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .scan-box h1 {
+            color: #ff9900;
+            font-size: 28px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(255, 153, 0, 0.5);
+        }
+
+        .scan-box p {
+            color: #ccc;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+
+        .barcode-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 20px;
+            text-align: center;
+            letter-spacing: 3px;
+            background: #111;
+            border: 1px solid #333;
+            color: #00d2ff;
+            border-radius: 6px;
+            outline: none;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        .barcode-input:focus {
+            border-color: #00d2ff;
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+        }
+
+        .btn-action {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #ff0055, #ff9900);
+            border: none;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-action:hover {
+            transform: scale(1.02);
+            filter: brightness(1.2);
+        }
+
+        #scan-status {
+            margin-top: 15px;
+            font-size: 14px;
+            font-weight: bold;
+            height: 20px;
+        }
+
+        /* --- HUD DEL JUEGO --- */
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            display: flex;
+            gap: 20px;
+        }
+
+        .hud-card {
+            background: rgba(0, 0, 0, 0.6);
+            border-left: 4px solid #00d2ff;
+            padding: 10px 20px;
+            border-radius: 4px;
+            backdrop-filter: blur(5px);
+        }
+
+        .hud-card .label {
+            font-size: 10px;
+            color: #aaa;
+            text-transform: uppercase;
+        }
+
+        .hud-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        /* --- PANTALLA FIN DE JUEGO / CANJE --- */
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 90;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .go-box {
+            background: #111;
+            border: 2px solid #00d2ff;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 0 30px rgba(0, 210, 255, 0.3);
+        }
+
+        .go-box h2 {
+            font-size: 26px;
+            color: #00d2ff;
+            margin-bottom: 15px;
+        }
+
+        /* IMPRESORA TÉRMICA ESTILO RECEIPT */
+        #receipt {
+            background: #fff;
+            color: #000;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 2px;
+            text-align: left;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        #receipt .r-header {
+            text-align: center;
+            font-weight: bold;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+        }
+
+        #receipt .r-line {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #receipt .r-footer {
+            border-top: 1px dashed #000;
+            padding-top: 8px;
+            margin-top: 8px;
+            text-align: center;
+            font-size: 10px;
+        }
+    </style>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-  <div id="hud">PUNTOS: <span id="score">0</span></div>
-  <div id="canvas-container"></div>
+    <div id="canvas-container"></div>
 
-  <div id="ui-welcome" class="ui-layer">
-    <div class="card">
-      <h1>GNC TURBO RACER 3D</h1>
-      <p id="welcome-msg">Escaneá tu código de barras o ingresalo para comenzar.</p>
-      <input type="text" id="ticket-input" placeholder="INGRESAR CÓDIGO" autofocus autocomplete="off">
-      <br>
-      <button id="btn-submit" onclick="procesarIngresoManual()">JUGAR / VALIDAR</button>
+    <!-- SCANNER OVERLAY -->
+    <div id="scan-overlay">
+        <div class="scan-box">
+            <h1>GNC TURBO RACER 3D</h1>
+            <p>Escanee o ingrese el código de ticket para ingresar al sistema:</p>
+            <input type="text" id="barcode-input" class="barcode-input" placeholder="SEL-XXXXX" autofocus autocomplete="off">
+            <button id="btn-submit" class="btn-action">JUGAR / VALIDAR</button>
+            <div id="scan-status"></div>
+        </div>
     </div>
-  </div>
 
-  <div id="ui-result" class="ui-layer" style="display: none;">
-    <div class="card">
-      <h2 id="result-title"></h2>
-      <p id="result-msg"></p>
-      <button onclick="reiniciarPantalla()">VOLVER AL INICIO</button>
+    <!-- HUD -->
+    <div id="hud">
+        <div class="hud-card">
+            <div class="label">Puntos</div>
+            <div class="value" id="score-val">0</div>
+        </div>
+        <div class="hud-card">
+            <div class="label">Presión GNC</div>
+            <div class="value" id="turbo-val">100%</div>
+        </div>
     </div>
-  </div>
 
-  <div id="print-voucher">
-    <h2>SHELL CONSTITUYENTES</h2>
-    <div class="v-line"></div>
-    <h3>¡VALE DE PREMIO!</h3>
-    <p><strong>PREMIO:</strong> <span id="v-premio"></span></p>
-    <p><strong>CÓDIGO:</strong> <span id="v-codigo"></span></p>
-    <p><strong>FECHA:</strong> <span id="v-fecha"></span></p>
-    <div class="v-line"></div>
-    <p>Presentá este vale en la caja para retirar tu beneficio.</p>
-  </div>
+    <!-- GAME OVER / CANJE SCREEN -->
+    <div id="game-over-screen">
+        <div class="go-box">
+            <h2 id="go-title">FIN DE LA CARRERA</h2>
+            <div id="final-score" style="font-size: 18px; margin-bottom: 10px;">Puntaje Final: <span id="go-score" style="color: #00ff88; font-weight: bold;">0</span></div>
+            
+            <div id="prize-result-box"></div>
 
-  <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyUe4u1ViXI-xj-PKUbVxFaCz1e8AKmVa5Ckh2haFyqu-EZL5hf7O0TrSIalZNdrayv3w/exec"; 
+            <button class="btn-action" style="margin-top: 15px;" onclick="location.reload();">VOLVER AL INICIO</button>
+        </div>
+    </div>
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const ORIGEN = urlParams.get('mode') === 'onsite' ? 'onsite' : 'remote';
-    
-    let activeCodigo = "";
-    let gameRunning = false;
-    let score = 0;
-    let animationFrameId;
+    <script>
+        // CONFIGURACIÓN WEB APP WEB_APP_URL
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcQeY2p1IeFInK_5a83UpxaA6E78I5IqT2YdK1J5c-NnJ9e56S/exec"; 
 
-    if (ORIGEN === 'onsite') {
-      document.getElementById('welcome-msg').innerText = "ESTACIÓN: Escaneá tu ticket fiscal para jugar o imprimir tu premio ganado en casa.";
-    }
+        let activeTicketCode = "";
+        let gameActive = false;
+        let score = 0;
+        let turbo = 100;
 
-    let barcodeBuffer = "";
-    let lastKeyTime = Date.now();
+        const barcodeInput = document.getElementById('barcode-input');
+        const btnSubmit = document.getElementById('btn-submit');
+        const scanStatus = document.getElementById('scan-status');
+        const scanOverlay = document.getElementById('scan-overlay');
 
-    document.addEventListener('keydown', (e) => {
-      if (document.activeElement.id === 'ticket-input' && e.key !== 'Enter') return;
+        // EVENTOS DE ENTRADA DE CÓDIGO
+        btnSubmit.addEventListener('click', () => {
+            let code = barcodeInput.value.trim();
+            if (code) validarCodigoTicket(code);
+        });
 
-      const currentTime = Date.now();
-      if (currentTime - lastKeyTime > 100) barcodeBuffer = "";
-      lastKeyTime = currentTime;
+        barcodeInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                let code = barcodeInput.value.trim();
+                if (code) validarCodigoTicket(code);
+            }
+        });
 
-      if (e.key === 'Enter') {
-        if (barcodeBuffer.length > 2) {
-          document.getElementById('ticket-input').value = barcodeBuffer;
-          validarCodigo(barcodeBuffer);
-          barcodeBuffer = "";
+        // VALIDACIÓN DUAL (INICIO JUEGO / CANJE)
+        function validarCodigoTicket(codigo) {
+            scanStatus.style.color = "#ffcc00";
+            scanStatus.innerText = "Validando código...";
+            barcodeInput.disabled = true;
+
+            fetch(`${WEB_APP_URL}?action=validarCodigo&codigo=${encodeURIComponent(codigo)}`, { method: "GET", redirect: "follow" })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "DISPONIBLE" || data.status === "OK") {
+                    // TICKET NUEVO -> ARRANCA EL JUEGO 3D
+                    scanStatus.style.color = "#00ff88";
+                    scanStatus.innerText = "¡CÓDIGO VÁLIDO! INICIANDO...";
+                    activeTicketCode = codigo;
+                    setTimeout(() => {
+                        scanOverlay.style.display = 'none';
+                        barcodeInput.value = "";
+                        barcodeInput.disabled = false;
+                        startGame();
+                    }, 800);
+                } else if (data.status === "JUGADO") {
+                    // TICKET YA JUGADO -> PANTALLA DE CANJE EN CAJA
+                    scanStatus.style.color = "#ffcc00";
+                    scanStatus.innerText = "TICKET YA JUGADO - MODO CANJE";
+                    
+                    const premioTexto = data.premio || "Consulte en tabla";
+                    const puntosTexto = data.puntos ? `${data.puntos} PTS` : "N/A";
+
+                    document.getElementById('prize-result-box').innerHTML = `
+                        <div id="receipt">
+                            <div class="r-header">
+                                *** SHELL GNC - VERIFICACIÓN ***<br>
+                                CANJE DE PREMIO
+                            </div>
+                            <div class="r-line"><span>TICKET:</span> <strong>${codigo}</strong></div>
+                            <div class="r-line"><span>ESTADO:</span> <strong>JUGADO</strong></div>
+                            <div class="r-line"><span>PUNTOS:</span> <strong>${puntosTexto}</strong></div>
+                            <hr style="border: 0.5px dashed #000; margin: 5px 0;">
+                            <div class="r-line"><span>PREMIO:</span></div>
+                            <div style="font-size: 15px; font-weight: bold; text-align: center; margin: 8px 0; color: #000;">
+                                ${premioTexto}
+                            </div>
+                            <div class="r-footer">
+                                Presente este ticket en caja<br>
+                                ¡Gracias por su visita!
+                            </div>
+                        </div>
+                    `;
+
+                    document.getElementById('game-over-screen').style.display = 'flex';
+                    document.getElementById('go-title').innerText = "CANJE DE PREMIO";
+                    document.getElementById('final-score').style.display = 'none';
+
+                    barcodeInput.value = "";
+                    barcodeInput.disabled = false;
+                } else if (data.status === "ENTREGADO") {
+                    scanStatus.style.color = "#ff3355";
+                    scanStatus.innerText = "ESTE PREMIO YA FUE ENTREGADO EN CAJA";
+                    setTimeout(() => { barcodeInput.value = ""; barcodeInput.disabled = false; barcodeInput.focus(); }, 2000);
+                } else {
+                    scanStatus.style.color = "#ff3355";
+                    scanStatus.innerText = data.message || "Código inválido";
+                    setTimeout(() => { barcodeInput.value = ""; barcodeInput.disabled = false; barcodeInput.focus(); }, 1800);
+                }
+            })
+            .catch(() => {
+                scanStatus.style.color = "#ff3355";
+                scanStatus.innerText = "Error de conexión con la base de datos";
+                setTimeout(() => { barcodeInput.value = ""; barcodeInput.disabled = false; barcodeInput.focus(); }, 1800);
+            });
         }
-      } else if (e.key.length === 1) {
-        barcodeBuffer += e.key;
-      }
-    });
 
-    function procesarIngresoManual() {
-      const code = document.getElementById('ticket-input').value.trim();
-      if (code) validarCodigo(code);
-    }
+        // MOTOR TRES.JS Y LOGICA DEL JUEGO
+        let scene, camera, renderer, playerBox;
+        let laneIndex = 1; // 0: Izq, 1: Centro, 2: Der
+        const lanes = [-2.5, 0, 2.5];
 
-    // --- CONEXIÓN DIRECTA CON APPS SCRIPT ---
-    function validarCodigo(code) {
-      activeCodigo = code;
-      document.getElementById('welcome-msg').innerText = "Validando código...";
-      document.getElementById('btn-submit').disabled = true;
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x050505, 0.03);
 
-      const fetchUrl = `${SCRIPT_URL}?action=validarCodigo&codigo=${encodeURIComponent(code)}&origen=${ORIGEN}`;
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 3, 7);
+            camera.lookAt(0, 1, 0);
 
-      fetch(fetchUrl, {
-        method: 'GET',
-        redirect: 'follow'
-      })
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById('btn-submit').disabled = false;
-        if (data.status === "OK") {
-          if (data.action === "JUGAR") {
-            document.getElementById('ui-welcome').style.display = 'none';
-            iniciarJuego3D();
-          } else if (data.action === "IMPRIMIR_VOUCHER") {
-            dispararImpresion(data.codigo, data.premio);
-            mostrarResultado("¡PREMIO RETIRADO!", `Se imprimió el comprobante por: <strong>${data.premio}</strong>`);
-          }
-        } else if (data.status === "INFO") {
-          mostrarResultado("PREMIO PENDIENTE", data.message);
-        } else {
-          alert(data.message || "Código no válido.");
-          reiniciarPantalla();
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // Luces
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xff0055, 1);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+
+            // Pista
+            const trackGeo = new THREE.PlaneGeometry(10, 200);
+            const trackMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+            const track = new THREE.Mesh(trackGeo, trackMat);
+            track.rotation.x = -Math.PI / 2;
+            track.position.z = -80;
+            scene.add(track);
+
+            // Jugador (Auto 3D Simplificado)
+            const playerGeo = new THREE.BoxGeometry(1.2, 0.6, 2.5);
+            const playerMat = new THREE.MeshPhongMaterial({ color: 0x00d2ff, emissive: 0x003366 });
+            playerBox = new THREE.Mesh(playerGeo, playerMat);
+            playerBox.position.set(lanes[laneIndex], 0.3, 0);
+            scene.add(playerBox);
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('keydown', handleControls);
         }
-      })
-      .catch(err => {
-        console.error("Error de respuesta:", err);
-        document.getElementById('btn-submit').disabled = false;
-        alert("No se pudo conectar con el servidor. Verificá que la versión publicada en Apps Script sea la más reciente.");
-        reiniciarPantalla();
-      });
-    }
 
-    let scene, camera, renderer, carMesh;
-
-    function iniciarJuego3D() {
-      document.getElementById('hud').style.display = 'block';
-      const container = document.getElementById('canvas-container');
-      container.innerHTML = "";
-
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x111111);
-
-      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.set(0, 3, 7);
-      camera.lookAt(0, 0, 0);
-
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      container.appendChild(renderer.domElement);
-
-      const light = new THREE.DirectionalLight(0xffffff, 1);
-      light.position.set(0, 10, 5);
-      scene.add(light);
-      scene.add(new THREE.AmbientLight(0x404040));
-
-      const roadGeo = new THREE.PlaneGeometry(6, 100);
-      const roadMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
-      const road = new THREE.Mesh(roadGeo, roadMat);
-      road.rotation.x = -Math.PI / 2;
-      scene.add(road);
-
-      const carGeo = new THREE.BoxGeometry(1, 0.5, 2);
-      const carMat = new THREE.MeshPhongMaterial({ color: 0xf39c12 });
-      carMesh = new THREE.Mesh(carGeo, carMat);
-      carMesh.position.set(0, 0.25, 2);
-      scene.add(carMesh);
-
-      score = 0;
-      gameRunning = true;
-
-      window.onkeydown = (e) => {
-        if (!gameRunning) return;
-        if (e.key === 'ArrowLeft' && carMesh.position.x > -2) carMesh.position.x -= 2;
-        if (e.key === 'ArrowRight' && carMesh.position.x < 2) carMesh.position.x += 2;
-      };
-
-      animate();
-      setTimeout(finalizarPartida, 10000);
-    }
-
-    function animate() {
-      if (!gameRunning) return;
-      animationFrameId = requestAnimationFrame(animate);
-      score += 5;
-      document.getElementById('score').innerText = score;
-      renderer.render(scene, camera);
-    }
-
-    function finalizarPartida() {
-      gameRunning = false;
-      cancelAnimationFrame(animationFrameId);
-      document.getElementById('hud').style.display = 'none';
-
-      const gano = score >= 300;
-      const premio = gano ? "🏆 10% DESC. EN CAFETERÍA" : "Sin Premio";
-
-      const fetchUrl = `${SCRIPT_URL}?action=registrarResultado&codigo=${encodeURIComponent(activeCodigo)}&puntos=${score}&gano=${gano}&premio=${encodeURIComponent(premio)}&origen=${ORIGEN}`;
-
-      fetch(fetchUrl, {
-        method: 'GET',
-        redirect: 'follow'
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.action === "IMPRIMIR_DIRECTO") {
-          dispararImpresion(activeCodigo, premio);
-          mostrarResultado("¡FELICIDADES!", `¡Ganaste <strong>${premio}</strong>! Retirá tu vale por la impresora.`);
-        } else if (data.action === "MOSTRAR_INSTRUCCIONES_CANJE") {
-          mostrarResultado("¡GANASTE!", `Obtuviste <strong>${premio}</strong>. Pasá por la estación y escaneá tu ticket fiscal para imprimir tu vale.`);
-        } else {
-          mostrarResultado("FIN DEL JUEGO", "No alcanzaste el puntaje mínimo de premio. ¡Sigue intentando en tu próxima carga!");
+        function handleControls(e) {
+            if (!gameActive) return;
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                if (laneIndex > 0) laneIndex--;
+            } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                if (laneIndex < 2) laneIndex++;
+            }
         }
-      })
-      .catch(err => {
-        mostrarResultado("ERROR", "No se pudo registrar el resultado de la carrera.");
-      });
-    }
 
-    function dispararImpresion(codigo, premio) {
-      document.getElementById('v-codigo').innerText = codigo;
-      document.getElementById('v-premio').innerText = premio;
-      document.getElementById('v-fecha').innerText = new Date().toLocaleString();
-      window.print();
-    }
+        function startGame() {
+            init3D();
+            gameActive = true;
+            score = 0;
+            animate();
 
-    function mostrarResultado(titulo, msg) {
-      document.getElementById('result-title').innerText = titulo;
-      document.getElementById('result-msg').innerHTML = msg;
-      document.getElementById('ui-result').style.display = 'flex';
-    }
+            // Loop de puntos
+            const scoreInterval = setInterval(() => {
+                if (!gameActive) {
+                    clearInterval(scoreInterval);
+                    return;
+                }
+                score += 10;
+                document.getElementById('score-val').innerText = score;
 
-    function reiniciarPantalla() {
-      document.getElementById('btn-submit').disabled = false;
-      document.getElementById('ui-result').style.display = 'none';
-      document.getElementById('ui-welcome').style.display = 'flex';
-      document.getElementById('ticket-input').value = "";
-      document.getElementById('welcome-msg').innerText = ORIGEN === 'onsite' 
-        ? "ESTACIÓN: Escaneá tu ticket fiscal para jugar o imprimir tu premio ganado en casa." 
-        : "Escaneá tu código de barras o ingresalo para comenzar.";
-      document.getElementById('canvas-container').innerHTML = "";
-    }
-  </script>
+                // Simulación de finalización de carrera tras alcanzar tiempo/distancia
+                if (score >= 200) {
+                    gameActive = false;
+                    clearInterval(scoreInterval);
+                    finalizarPartida();
+                }
+            }, 500);
+        }
+
+        function animate() {
+            if (!gameActive) return;
+            requestAnimationFrame(animate);
+
+            // Suavizado de cambio de carril
+            playerBox.position.x += (lanes[laneIndex] - playerBox.position.x) * 0.2;
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // REGISTRAR RESULTADO DE LA PARTIDA AL FINALIZAR
+        function finalizarPartida() {
+            fetch(`${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${score}`, { method: "GET", redirect: "follow" })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('go-score').innerText = score;
+                document.getElementById('prize-result-box').innerHTML = `
+                    <div id="receipt">
+                        <div class="r-header">
+                            *** SHELL GNC - TURBO RACER ***<br>
+                            COMPROBANTE DE PREMIO
+                        </div>
+                        <div class="r-line"><span>CÓDIGO:</span> <strong>${activeTicketCode}</strong></div>
+                        <div class="r-line"><span>PUNTAJE:</span> <strong>${score} PTS</strong></div>
+                        <hr style="border: 0.5px dashed #000; margin: 5px 0;">
+                        <div class="r-line"><span>PREMIO ASIGNADO:</span></div>
+                        <div style="font-size: 14px; font-weight: bold; text-align: center; margin: 8px 0; color: #000;">
+                            ${data.premioAsignado || 'Siga participando'}
+                        </div>
+                        <div class="r-footer">
+                            Presente este ticket en la caja del Shop<br>
+                            para retirar su premio.
+                        </div>
+                    </div>
+                `;
+                document.getElementById('game-over-screen').style.display = 'flex';
+            })
+            .catch(() => {
+                alert("Error al guardar los resultados en la base de datos.");
+                location.reload();
+            });
+        }
+    </script>
 </body>
 </html>
