@@ -15,6 +15,7 @@
     input[type="text"] { width: 80%; padding: 12px; margin: 15px 0; font-size: 1.2rem; text-align: center; border-radius: 6px; border: 1px solid #444; background: #333; color: #fff; text-transform: uppercase; }
     button { background: #f39c12; color: #111; font-weight: bold; border: none; padding: 12px 25px; font-size: 1.1rem; border-radius: 6px; cursor: pointer; transition: 0.2s; }
     button:hover { background: #e67e22; }
+    button:disabled { background: #555; color: #888; cursor: not-allowed; }
     
     #hud { position: absolute; top: 20px; left: 20px; z-index: 5; font-size: 1.5rem; font-weight: bold; color: #f39c12; display: none; text-shadow: 2px 2px 4px #000; }
     
@@ -102,35 +103,7 @@
       if (code) validarCodigo(code);
     }
 
-    // --- FUNCIÓN DE CONSULTA JSONP (EVITA CONGELAMIENTO Y CORS) ---
-    function fetchJSONP(url, callbackName) {
-      return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        const timeout = setTimeout(() => {
-          script.remove();
-          delete window[callbackName];
-          reject(new Error("Tiempo de espera agotado con el servidor."));
-        }, 10000);
-
-        window[callbackName] = (data) => {
-          clearTimeout(timeout);
-          script.remove();
-          delete window[callbackName];
-          resolve(data);
-        };
-
-        script.src = `${url}&callback=${callbackName}`;
-        script.onerror = () => {
-          clearTimeout(timeout);
-          script.remove();
-          delete window[callbackName];
-          reject(new Error("Error al cargar la respuesta del servidor."));
-        };
-
-        document.body.appendChild(script);
-      });
-    }
-
+    // --- CONEXIÓN DIRECTA CON APPS SCRIPT ---
     function validarCodigo(code) {
       activeCodigo = code;
       document.getElementById('welcome-msg').innerText = "Validando código...";
@@ -138,29 +111,34 @@
 
       const fetchUrl = `${SCRIPT_URL}?action=validarCodigo&codigo=${encodeURIComponent(code)}&origen=${ORIGEN}`;
 
-      fetchJSONP(fetchUrl, 'cb_validar')
-        .then(data => {
-          document.getElementById('btn-submit').disabled = false;
-          if (data.status === "OK") {
-            if (data.action === "JUGAR") {
-              document.getElementById('ui-welcome').style.display = 'none';
-              iniciarJuego3D();
-            } else if (data.action === "IMPRIMIR_VOUCHER") {
-              dispararImpresion(data.codigo, data.premio);
-              mostrarResultado("¡PREMIO RETIRADO!", `Se imprimió el comprobante por: <strong>${data.premio}</strong>`);
-            }
-          } else if (data.status === "INFO") {
-            mostrarResultado("PREMIO PENDIENTE", data.message);
-          } else {
-            alert(data.message || "Código no válido.");
-            reiniciarPantalla();
+      fetch(fetchUrl, {
+        method: 'GET',
+        redirect: 'follow'
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('btn-submit').disabled = false;
+        if (data.status === "OK") {
+          if (data.action === "JUGAR") {
+            document.getElementById('ui-welcome').style.display = 'none';
+            iniciarJuego3D();
+          } else if (data.action === "IMPRIMIR_VOUCHER") {
+            dispararImpresion(data.codigo, data.premio);
+            mostrarResultado("¡PREMIO RETIRADO!", `Se imprimió el comprobante por: <strong>${data.premio}</strong>`);
           }
-        })
-        .catch(err => {
-          document.getElementById('btn-submit').disabled = false;
-          alert(err.message || "Error de conexión con el servidor.");
+        } else if (data.status === "INFO") {
+          mostrarResultado("PREMIO PENDIENTE", data.message);
+        } else {
+          alert(data.message || "Código no válido.");
           reiniciarPantalla();
-        });
+        }
+      })
+      .catch(err => {
+        console.error("Error de respuesta:", err);
+        document.getElementById('btn-submit').disabled = false;
+        alert("No se pudo conectar con el servidor. Verificá que la versión publicada en Apps Script sea la más reciente.");
+        reiniciarPantalla();
+      });
     }
 
     let scene, camera, renderer, carMesh;
@@ -229,20 +207,24 @@
 
       const fetchUrl = `${SCRIPT_URL}?action=registrarResultado&codigo=${encodeURIComponent(activeCodigo)}&puntos=${score}&gano=${gano}&premio=${encodeURIComponent(premio)}&origen=${ORIGEN}`;
 
-      fetchJSONP(fetchUrl, 'cb_registrar')
-        .then(data => {
-          if (data.action === "IMPRIMIR_DIRECTO") {
-            dispararImpresion(activeCodigo, premio);
-            mostrarResultado("¡FELICIDADES!", `¡Ganaste <strong>${premio}</strong>! Retirá tu vale por la impresora.`);
-          } else if (data.action === "MOSTRAR_INSTRUCCIONES_CANJE") {
-            mostrarResultado("¡GANASTE!", `Obtuviste <strong>${premio}</strong>. Pasá por la estación y escaneá tu ticket fiscal para imprimir tu vale.`);
-          } else {
-            mostrarResultado("FIN DEL JUEGO", "No alcanzaste el puntaje mínimo de premio. ¡Sigue intentando en tu próxima carga!");
-          }
-        })
-        .catch(err => {
-          mostrarResultado("ERROR", "No se pudo registrar el resultado de la carrera.");
-        });
+      fetch(fetchUrl, {
+        method: 'GET',
+        redirect: 'follow'
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.action === "IMPRIMIR_DIRECTO") {
+          dispararImpresion(activeCodigo, premio);
+          mostrarResultado("¡FELICIDADES!", `¡Ganaste <strong>${premio}</strong>! Retirá tu vale por la impresora.`);
+        } else if (data.action === "MOSTRAR_INSTRUCCIONES_CANJE") {
+          mostrarResultado("¡GANASTE!", `Obtuviste <strong>${premio}</strong>. Pasá por la estación y escaneá tu ticket fiscal para imprimir tu vale.`);
+        } else {
+          mostrarResultado("FIN DEL JUEGO", "No alcanzaste el puntaje mínimo de premio. ¡Sigue intentando en tu próxima carga!");
+        }
+      })
+      .catch(err => {
+        mostrarResultado("ERROR", "No se pudo registrar el resultado de la carrera.");
+      });
     }
 
     function dispararImpresion(codigo, premio) {
