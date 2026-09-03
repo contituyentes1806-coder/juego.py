@@ -176,9 +176,12 @@
             border-radius: 25px; cursor: pointer;
         }
 
-        /* --- COMPROBANTE DE PREMIO (OCULTO EN PANTALLA) --- */
+        /* --- COMPROBANTE DE PREMIO (OCULTO EN PANTALLA PERO PERMITE GENERACIÓN DE QR) --- */
         #print-ticket {
-            display: none;
+            display: block;
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
         }
 
         /* --- REGLAS EXCLUSIVAS PARA IMPRESORA TÉRMICA (80mm / 72mm imprimibles) --- */
@@ -194,8 +197,8 @@
             #print-ticket {
                 display: block !important;
                 position: absolute;
-                left: 0;
-                top: 0;
+                left: 0 !important;
+                top: 0 !important;
                 width: 72mm;
                 margin: 0;
                 padding: 5px;
@@ -280,12 +283,12 @@
 
     <div id="controls-container">
         <div class="btn-group">
-            <div class="control-btn" id="btn-left">?</div>
-            <div class="control-btn" id="btn-right">?</div>
+            <div class="control-btn" id="btn-left">◄</div>
+            <div class="control-btn" id="btn-right">►</div>
         </div>
         <div class="btn-group">
             <div class="control-btn" id="btn-brake"> freno </div>
-            <div class="control-btn" id="btn-boost">?</div>
+            <div class="control-btn" id="btn-boost">▲</div>
         </div>
     </div>
 
@@ -299,7 +302,7 @@
         <button id="restart-btn" onclick="resetGame()">NUEVO TICKET</button>
     </div>
 
-    <!-- PLANTILLA COMPROBANTE DE PREMIO (IMPRESIÓN FÍSICA) -->
+    <!-- PLANTILLA COMPROBANTE DE PREMIO -->
     <div id="print-ticket">
         <div class="ticket-header">
             EXTRA GNC<br>
@@ -332,17 +335,27 @@
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUe4u1ViXI-xj-PKUbVxFaCz1e8AKmVa5Ckh2haFyqu-EZL5hf7O0TrSIalZNdrayv3w/exec";
         const PUNTAJE_MINIMO_PREMIO = 150; 
         let activeTicketCode = "";
+        window.lastPremioGanado = "Siga participando";
 
         const barcodeInput = document.getElementById('barcode-input');
         const scanStatus = document.getElementById('scan-status');
         const scanOverlay = document.getElementById('scan-overlay');
 
+        // Mantenimiento de foco continuo en el lector de barra
         document.addEventListener('click', () => {
             if (scanOverlay.style.display !== 'none') barcodeInput.focus();
         });
 
+        if (barcodeInput) {
+            barcodeInput.addEventListener('blur', () => {
+                if (scanOverlay.style.display !== 'none') {
+                    setTimeout(() => barcodeInput.focus(), 50);
+                }
+            });
+        }
+
         function limpiarCodigoLector(input) {
-            return input.trim().toUpperCase().replace(/'/g, "-").replace(/\?/g, "-").replace(/_/g, "-");
+            return input.trim().toUpperCase();
         }
 
         barcodeInput.addEventListener('keypress', function(e) {
@@ -400,18 +413,22 @@
             const qrContainer = document.getElementById('qrcode-container');
             qrContainer.innerHTML = "";
             
-            new QRCode(qrContainer, {
-                text: `VALIDAR|TK:${activeTicketCode}|PTS:${score}|PREMIO:${premioTexto}`,
-                width: 90,
-                height: 90,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.M
-            });
+            try {
+                new QRCode(qrContainer, {
+                    text: `VALIDAR|TK:${activeTicketCode}|PTS:${score}|PREMIO:${premioTexto}`,
+                    width: 90,
+                    height: 90,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            } catch(e) {
+                console.error("Error al generar QR:", e);
+            }
 
             setTimeout(() => {
                 window.print();
-            }, 300);
+            }, 250);
         }
 
         // --- GAME LOGIC & THREE.JS ---
@@ -820,16 +837,15 @@
 
         function updateUI() {
             document.getElementById('score-val').innerText = score;
-            document.getElementById('lives-val').innerText = '??'.repeat(Math.max(0, lives));
+            document.getElementById('lives-val').innerText = '❤️'.repeat(Math.max(0, lives));
         }
 
-        // --- MANEJO DE FIN DE JUEGO E INTEGRACIÓN ASÍNCRONA CON APPS SCRIPT ---
+        // --- MANEJO DE FIN DE JUEGO E INTEGRACIÓN ASÍNCRONA ---
         async function triggerGameOver() {
             isGameOver = true;
             const resultBox = document.getElementById('prize-result-box');
             document.getElementById('final-score').innerText = `PUNTUACIÓN FINAL: ${score} PTS`;
             
-            // Estado visual de carga
             resultBox.innerHTML = `
                 <div style="background: rgba(0, 210, 255, 0.1); border: 2px solid #00d2ff; border-radius: 8px; padding: 12px; color: #00d2ff;">
                     <p style="font-size: 14px; font-weight: bold;">Procesando resultado y consultando premio...</p>
@@ -840,7 +856,6 @@
             let premioObtenido = "Siga participando";
 
             try {
-                // Registro asíncrono y consulta directa a la tabla_premios
                 const url = `${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${score}`;
                 const response = await fetch(url, { method: "GET", redirect: "follow" });
                 const data = await response.json();
@@ -852,16 +867,17 @@
                 console.error("Error al comunicarse con Apps Script:", err);
             }
 
-            // Renderizado de resultado según la respuesta devuelta por Google Sheets
             if (score >= PUNTAJE_MINIMO_PREMIO && premioObtenido !== "Siga participando") {
+                window.lastPremioGanado = premioObtenido;
                 resultBox.innerHTML = `
-                    <div style="background: rgba(0, 255, 136, 0.15); border: 2px solid #00ff88; border-radius: 8px; padding: 12px; color: #00ff88;">
-                        <h3 style="margin-bottom: 5px;">?? ¡FELICITACIONES! ??</h3>
-                        <p style="color: #fff; font-size: 16px; font-weight: bold;">${premioObtenido}</p>
-                        <p style="font-size: 12px; color: #a0aec0; margin-top: 8px;">Imprimiendo comprobante de premio...</p>
+                    <div style="background: rgba(0, 255, 136, 0.15); border: 2px solid #00ff88; border-radius: 8px; padding: 14px; color: #00ff88;">
+                        <h3 style="margin-bottom: 5px;">🎉 ¡FELICITACIONES! 🎉</h3>
+                        <p style="color: #fff; font-size: 18px; font-weight: bold; margin: 8px 0;">${premioObtenido}</p>
+                        <button id="btn-print-manual" onclick="imprimirTicketPremio(window.lastPremioGanado)" style="background: #00ff88; color: #000; border: none; padding: 12px 20px; font-weight: bold; font-size: 14px; border-radius: 6px; cursor: pointer; margin-top: 10px; width: 100%;">
+                            🖨️ IMPRIMIR COMPROBANTE
+                        </button>
                     </div>
                 `;
-                imprimirTicketPremio(premioObtenido);
             } else {
                 resultBox.innerHTML = `
                     <div style="background: rgba(255, 204, 0, 0.1); border: 2px solid #ffcc00; border-radius: 8px; padding: 12px; color: #ffcc00;">
@@ -896,111 +912,3 @@
     </script>
 </body>
 </html>
-<!-- === PARCHE DE CORRECCIÓN AUTOMÁTICA (AGREGAR AL FINAL) === -->
-<script>
-window.addEventListener('DOMContentLoaded', () => {
-
-    // 1. CORRECCIÓN DE VISIBILIDAD PARA DIBUJAR EL QR CORRECTAMENTE
-    const printTicket = document.getElementById('print-ticket');
-    if (printTicket) {
-        printTicket.style.display = 'block';
-        printTicket.style.position = 'absolute';
-        printTicket.style.left = '-9999px';
-        printTicket.style.top = '-9999px';
-    }
-
-    // 2. CORRECCIÓN DEL FOCO CONTINUO DEL ESCÁNER
-    if (barcodeInput && scanOverlay) {
-        barcodeInput.addEventListener('blur', () => {
-            if (scanOverlay.style.display !== 'none') {
-                setTimeout(() => barcodeInput.focus(), 50);
-            }
-        });
-    }
-
-    // 3. DESACTIVAR REEMPLAZO AGRESIVO DE CARACTERES
-    window.limpiarCodigoLector = function(input) {
-        return input.trim().toUpperCase();
-    };
-
-    // 4. SOBREESCRIBIR FUNCIÓN DE IMPRESIÓN SINCRO
-    window.imprimirTicketPremio = function(premioTexto) {
-        const ahora = new Date();
-        document.getElementById('t-fecha').innerText = ahora.toLocaleDateString('es-AR');
-        document.getElementById('t-hora').innerText = ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('t-codigo').innerText = activeTicketCode || "N/A";
-        document.getElementById('t-puntos').innerText = `${score} PTS`;
-        document.getElementById('t-premio-nombre').innerText = premioTexto;
-
-        const qrContainer = document.getElementById('qrcode-container');
-        qrContainer.innerHTML = "";
-        
-        try {
-            new QRCode(qrContainer, {
-                text: `VALIDAR|TK:${activeTicketCode}|PTS:${score}|PREMIO:${premioTexto}`,
-                width: 90,
-                height: 90,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.M
-            });
-        } catch(e) {
-            console.error("Error al generar QR:", e);
-        }
-
-        setTimeout(() => {
-            window.print();
-        }, 200);
-    };
-
-    // 5. REESCRIBIR TRIGGER GAME OVER CON BOTÓN DE IMPRESIÓN DIRECTO (PREVIENE BLOQUEOS POP-UP)
-    window.triggerGameOver = async function() {
-        isGameOver = true;
-        const resultBox = document.getElementById('prize-result-box');
-        document.getElementById('final-score').innerText = `PUNTUACIÓN FINAL: ${score} PTS`;
-        
-        resultBox.innerHTML = `
-            <div style="background: rgba(0, 210, 255, 0.1); border: 2px solid #00d2ff; border-radius: 8px; padding: 12px; color: #00d2ff;">
-                <p style="font-size: 14px; font-weight: bold;">Procesando resultado y consultando premio...</p>
-            </div>
-        `;
-        document.getElementById('game-over-screen').style.display = 'flex';
-
-        let premioObtenido = "Siga participando";
-
-        try {
-            const url = `${WEB_APP_URL}?action=registrarPartida&codigo=${encodeURIComponent(activeTicketCode)}&puntos=${score}`;
-            const response = await fetch(url, { method: "GET", redirect: "follow" });
-            const data = await response.json();
-
-            if (data.status === "OK" && data.premioAsignado) {
-                premioObtenido = data.premioAsignado;
-            }
-        } catch (err) {
-            console.error("Error al comunicarse con Apps Script:", err);
-        }
-
-        if (score >= PUNTAJE_MINIMO_PREMIO && premioObtenido !== "Siga participando") {
-            window.lastPremioGanado = premioObtenido;
-            resultBox.innerHTML = `
-                <div style="background: rgba(0, 255, 136, 0.15); border: 2px solid #00ff88; border-radius: 8px; padding: 14px; color: #00ff88;">
-                    <h3 style="margin-bottom: 5px;">🎉 ¡FELICITACIONES! 🎉</h3>
-                    <p style="color: #fff; font-size: 18px; font-weight: bold; margin: 8px 0;">${premioObtenido}</p>
-                    <button id="btn-print-manual" onclick="imprimirTicketPremio(window.lastPremioGanado)" style="background: #00ff88; color: #000; border: none; padding: 10px 20px; font-weight: bold; font-size: 14px; border-radius: 6px; cursor: pointer; margin-top: 10px; width: 100%;">
-                        🖨️ IMPRIMIR COMPROBANTE
-                    </button>
-                </div>
-            `;
-        } else {
-            resultBox.innerHTML = `
-                <div style="background: rgba(255, 204, 0, 0.1); border: 2px solid #ffcc00; border-radius: 8px; padding: 12px; color: #ffcc00;">
-                    <h3 style="margin-bottom: 5px;">¡GRACIAS POR JUGAR!</h3>
-                    <p style="color: #fff; font-size: 14px; margin-top: 5px;">${premioObtenido}</p>
-                    <p style="color: #00d2ff; font-size: 13px; font-weight: bold; margin-top: 10px;">¡Volvé a cargar en tu próxima visita e intentalo de nuevo!</p>
-                </div>
-            `;
-        }
-    };
-});
-</script>
-
